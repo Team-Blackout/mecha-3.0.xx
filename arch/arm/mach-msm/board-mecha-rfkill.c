@@ -34,8 +34,6 @@
 static struct rfkill *bt_rfk;
 static const char bt_name[] = "bcm4329";
 
-extern int mecha_wifi_bt_sleep_clk_ctl(int on, int id);
-
 /* bt initial configuration */
 static uint32_t mecha_bt_init_table[] = {
 
@@ -144,6 +142,7 @@ static uint32_t mecha_bt_on_table[] = {
 				GPIO_CFG_OUTPUT,
 				GPIO_CFG_NO_PULL,
 				GPIO_CFG_4MA),
+
 };
 
 /* bt off configuration */
@@ -213,9 +212,6 @@ static void config_bt_table(uint32_t *table, int len)
 
 static void mecha_config_bt_init(void)
 {
-	mecha_wifi_bt_sleep_clk_ctl(CLK_ON, ID_BT);
-	mdelay(2);
-
 	/* set bt initial configuration*/
 	config_bt_table(mecha_bt_init_table,
 				ARRAY_SIZE(mecha_bt_init_table));
@@ -224,6 +220,7 @@ static void mecha_config_bt_init(void)
 	/* BT_RESET_N */
 	gpio_set_value(MECHA_GPIO_BT_RESET_N, 0);
 	mdelay(1);
+
 	/* BT_SHUTDOWN_N */
 	gpio_set_value(MECHA_GPIO_BT_SHUTDOWN_N, 0);
 	mdelay(1);
@@ -253,8 +250,7 @@ static void mecha_config_bt_init(void)
 
 static void mecha_config_bt_on(void)
 {
-	mecha_wifi_bt_sleep_clk_ctl(CLK_ON, ID_BT);
-	mdelay(2);
+	printk(KERN_INFO "[BT]== R ON ==\n");
 
 	/* set bt on configuration*/
 	config_bt_table(mecha_bt_on_table,
@@ -302,8 +298,7 @@ static void mecha_config_bt_off(void)
 	/* BT_CHIP_WAKE */
 	gpio_set_value(MECHA_GPIO_BT_CHIP_WAKE, 0);
 
-	mecha_wifi_bt_sleep_clk_ctl(CLK_OFF, ID_BT);
-	mdelay(2);
+	printk(KERN_INFO "[BT]== R OFF ==\n");
 }
 
 static int bluetooth_set_power(void *data, bool blocked)
@@ -339,6 +334,7 @@ static int mecha_rfkill_probe(struct platform_device *pdev)
 	rfkill_set_states(bt_rfk, default_state, false);
 
 	/* userspace cannot take exclusive control */
+
 	rc = rfkill_register(bt_rfk);
 	if (rc)
 		goto err_rfkill_reg;
@@ -355,7 +351,6 @@ static int mecha_rfkill_remove(struct platform_device *dev)
 {
 	rfkill_unregister(bt_rfk);
 	rfkill_destroy(bt_rfk);
-
 	return 0;
 }
 

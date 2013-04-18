@@ -79,5 +79,7 @@
 #define FIRST_GPIO_IRQ MSM_GPIO_TO_INT(0)
 #define MSM_uP_TO_INT(n) (FIRST_MICROP_IRQ + (n))
 #define MSM_INT_TO_REG(base, irq) (base + irq / 32)
+extern void register_msm_irq_mask(unsigned int irq);
+extern void unregister_msm_irq_mask(unsigned int irq);
 
 #endif

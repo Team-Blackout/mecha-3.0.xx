@@ -16,12 +16,22 @@
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <mach/atmega_microp.h>
-#include <mach/drv_callback.h>
+
 #include "board-mecha.h"
 
 static int mecha_microp_function_init(struct i2c_client *client)
 {
+	int ret;
+
+	/* Reset button interrupt */
+	ret = microp_write_interrupt(client, (1<<8), 1);
+	if (ret)
+		goto exit;
+
 	return 0;
+
+exit:
+	return ret;
 }
 
 static struct microp_ops ops = {

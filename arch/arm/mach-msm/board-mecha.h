@@ -167,7 +167,10 @@ extern struct platform_device msm_device_mdp;
 #define MECHA_GPIO_WIFI_BT_SLEEP_CLK_EN	PMGPIO(38)
 #define MECHA_GPIO_UP_RESET_N		PMGPIO(36)
 
-int __init mecha_init_mmc(unsigned int sys_rev);
+#ifdef CONFIG_MICROP_COMMON
+void __init mecha_microp_init(void);
+#endif
+int mecha_init_mmc(unsigned int sys_rev);
 void __init mecha_audio_init(void);
 int __init mecha_init_keypad(void);
 int __init mecha_wifi_init(void);
