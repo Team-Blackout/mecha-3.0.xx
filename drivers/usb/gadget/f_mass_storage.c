@@ -313,8 +313,7 @@ static const char fsg_string_interface[] = "Mass Storage";
 #include "storage_common.c"
 
 #ifdef CONFIG_PASCAL_DETECT
-extern struct switch_dev kddi_switch;
-extern atomic_t pascal_enable;
+struct work_struct pascal_work;
 #endif
 
 #ifdef CONFIG_USB_CSW_HACK
@@ -2778,10 +2777,7 @@ static int do_scsi_command(struct fsg_common *common)
 	case SC_PASCAL_MODE:
 		printk(KERN_INFO "SC_PASCAL_MODE\n");
 		if (!strncmp("RDEVCHG=PASCAL", (char *)&common->cmnd[1], 14)) {
-			printk(KERN_INFO "usb: switch to CDC ACM\n");
-			android_switch_function(0x400);
-			switch_set_state(&kddi_switch, 1);
-			atomic_set(&pascal_enable, 1);
+			schedule_work(&pascal_work);
 		}
 		break;
 #endif

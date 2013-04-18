@@ -950,7 +950,7 @@ static ssize_t diag2arm9_write(struct file *fp, const char __user *buf,
 					return -ENOMEM;
 				}
 				memcpy(buf_9k, ctxt->DM_buf, writed);
-				/*msm_sdio_diag_write((void *)buf_9k, writed);*/
+				msm_sdio_diag_write((void *)buf_9k, writed);
 				buf_9k = NULL;
 			}
 #endif
@@ -995,7 +995,7 @@ static ssize_t diag2arm9_write(struct file *fp, const char __user *buf,
 					return -ENOMEM;
 				}
 				memcpy(buf_9k, ctxt->DM_buf, writed);
-				/*msm_sdio_diag_write((void *)buf_9k, writed);*/
+				msm_sdio_diag_write((void *)buf_9k, writed);
 				buf_9k = NULL;
 			}
 #endif
@@ -1027,7 +1027,7 @@ static ssize_t diag2arm9_write(struct file *fp, const char __user *buf,
 						mutex_unlock(&ctxt->diag2arm9_write_lock);
 						return -EINVAL;
 					}
-					/*msm_sdio_diag_write((void *)buf_9k, writed);*/
+					msm_sdio_diag_write((void *)buf_9k, writed);
 					buf_9k = NULL;
 				}
 #endif

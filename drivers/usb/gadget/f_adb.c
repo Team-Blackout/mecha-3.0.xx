@@ -39,9 +39,13 @@
 /* number of tx requests to allocate */
 #define ADB_TX_REQ_MAX 4
 #define ADB_RX_REQ_MAX 32
+#define ADB_PERF_TIMEOUT (jiffies + msecs_to_jiffies(5000))
 
 static const char adb_shortname[] = "android_adb";
 static struct wake_lock adb_idle_wake_lock;
+#ifdef CONFIG_PERFLOCK
+static struct perf_lock adb_xfer_perf_lock;
+#endif
 
 struct adb_dev {
 	struct usb_function function;
@@ -71,6 +75,10 @@ struct adb_dev {
 	unsigned read_count;
 
 	int maxsize;
+	bool adb_perf_lock_on;
+#ifdef CONFIG_PERFLOCK
+	struct timer_list perf_timer;
+#endif
 };
 
 static struct usb_interface_descriptor adb_interface_desc = {
@@ -131,6 +139,14 @@ static struct usb_descriptor_header *hs_adb_descs[] = {
 /* temporary variable used between adb_open() and adb_gadget_bind() */
 static struct adb_dev *_adb_dev;
 int board_get_usb_ats(void);
+
+static void adb_perf_lock_disable(unsigned long data)
+{
+#ifdef CONFIG_PERFLOCK
+	if (is_perf_lock_active(&adb_xfer_perf_lock))
+		perf_unlock(&adb_xfer_perf_lock);
+#endif
+}
 
 static inline struct adb_dev *func_to_adb(struct usb_function *f)
 {
@@ -299,6 +315,14 @@ static ssize_t adb_read(struct file *fp, char __user *buf,
 
 	if (count > ADB_BULK_BUFFER_SIZE)
 		return -EINVAL;
+#ifdef CONFIG_PERFLOCK
+	else if (dev->adb_perf_lock_on && count == ADB_BULK_BUFFER_SIZE) {
+		if (!is_perf_lock_active(&adb_xfer_perf_lock))
+			perf_lock(&adb_xfer_perf_lock);
+		else
+			mod_timer(&dev->perf_timer, ADB_PERF_TIMEOUT);
+	}
+#endif
 
 	if (adb_lock(&dev->read_excl))
 		return -EBUSY;
@@ -482,6 +506,7 @@ static int adb_release(struct inode *ip, struct file *fp)
 	printk(KERN_INFO "adb_release: %s(parent:%s): tgid=%d\n",
 			current->comm, current->parent->comm, current->tgid);
 	adb_unlock(&_adb_dev->open_excl);
+	adb_perf_lock_disable((unsigned long)&_adb_dev);
 	return 0;
 }
 
@@ -683,7 +708,7 @@ static int adb_bind_config(struct usb_configuration *c)
 	return usb_add_function(c, &dev->function);
 }
 
-static int adb_setup(void)
+static int adb_setup(bool adb_perf_lock_on)
 {
 	struct adb_dev *dev;
 	int ret;
@@ -706,6 +731,11 @@ static int adb_setup(void)
 	INIT_LIST_HEAD(&dev->rx_done);
 
 	wake_lock_init(&adb_idle_wake_lock, WAKE_LOCK_IDLE, "adb_idle_lock");
+#ifdef CONFIG_PERFLOCK
+	perf_lock_init(&adb_xfer_perf_lock, PERF_LOCK_HIGHEST, "adb_xfer");
+	setup_timer(&dev->perf_timer, adb_perf_lock_disable, (unsigned long)dev);
+#endif
+	dev->adb_perf_lock_on = adb_perf_lock_on;
 
 	_adb_dev = dev;
 

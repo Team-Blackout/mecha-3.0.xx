@@ -27,7 +27,7 @@
 #include <linux/mfd/marimba.h>
 #include <linux/i2c.h>
 #include <linux/akm8975.h>
-#include <linux/bma250.h>
+#include <linux/bma150.h>
 #include <linux/lightsensor.h>
 #include <linux/input.h>
 #include <linux/synaptics_i2c_rmi.h>
@@ -69,6 +69,7 @@
 #include <mach/qdsp5v2_2x/audio_dev_ctl.h>
 #include <mach/htc_battery.h>
 #include <linux/tps65200.h>
+#include <mach/tpa2051d3.h>
 #include <mach/rpc_server_handset.h>
 #include <mach/msm_tsif.h>
 #include <mach/socinfo.h>
@@ -98,6 +99,7 @@
 #include "acpuclock.h"
 #include <mach/dal_axi.h>
 #include <mach/msm_serial_hs.h>
+#include <mach/smsc251x.h>
 #include <mach/qdsp5v2_2x/mi2s.h>
 #include <mach/qdsp5v2_2x/audio_dev_ctl.h>
 #include <mach/sdio_al.h>
@@ -152,6 +154,10 @@ int htc_get_usb_accessory_adc_level(uint32_t *buffer);
 #define PMIC_GPIO_QUICKVX_CLK 37 /* PMIC GPIO 38 */
 #define	PM_FLIP_MPP 5 /* PMIC MPP 06 */
 #define PMIC_GPIO_SD_DET 34
+
+static void mecha_usb_hub_enable(bool enable);
+static void mecha_usb_hub_gpio_config(bool);
+static int (*mecha_smsc251x_switch_cb)(uint8_t);
 
 struct pm8xxx_gpio_init_info {
 	unsigned			gpio;
@@ -282,6 +288,25 @@ struct atmel_i2c_platform_data mecha_ts_atmel_data[] = {
 		.wlc_config = {30, 30, 35, 45, 40, 8, 16},
 		.GCAF_level = {20, 24, 28, 40, 63},
 	},
+};
+
+static int mecha_smsc251x_switch_register(int (*callback)(uint8_t hub_enable))
+{
+	if (mecha_smsc251x_switch_cb)
+		return -EAGAIN;
+
+	mecha_smsc251x_switch_cb = callback;
+	return 0;
+}
+
+static void mecha_usb_hub_enable(bool enable)
+{
+	mecha_smsc251x_switch_cb(enable);
+}
+
+struct smsc251x_platform_data mecha_smsc251x_data = {
+	.usb_hub_gpio_config	= mecha_usb_hub_gpio_config,
+	.register_switch_func	= mecha_smsc251x_switch_register,
 };
 
 /*static int mecha_syn_ts_power(int on)
@@ -466,7 +491,7 @@ static struct akm8975_platform_data compass_platform_data = {
 	.intr_pin = PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_COMPASS_INT_N),
 };
 
-static struct bma250_platform_data gsensor_platform_data = {
+static struct bma150_platform_data gsensor_platform_data = {
 	.intr = MSM_GPIO_TO_INT(PM8058_GPIO_PM_TO_SYS(
 			MECHA_GPIO_GSENSOR_INT_N)),
 	.chip_layout = 1,
@@ -479,7 +504,7 @@ static struct i2c_board_info i2c_Sensors_devices[] = {
 		.irq = MSM_GPIO_TO_INT(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_COMPASS_INT_N)),
 	},
 	{
-		I2C_BOARD_INFO(BMA250_I2C_NAME, 0x32 >> 1),
+		I2C_BOARD_INFO(BMA150_I2C_NAME, 0x70 >> 1),
 		.platform_data = &gsensor_platform_data,
 		.irq = MSM_GPIO_TO_INT(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_GSENSOR_INT_N)),
 	},
@@ -2928,7 +2953,7 @@ static struct android_usb_platform_data android_usb_pdata = {
 	.functions		= usb_functions_all,
 	.fserial_init_string	= "tty:modem,tty,tty:serial",
 	.nluns			= 1,
-	.req_reset_during_switch_func = 1,
+//	.req_reset_during_switch_func = 1,
 #ifdef CONFIG_USB_GADGET_VERIZON_PRODUCT_ID
 	.match = mecha_usb_product_id_match,
 #endif
@@ -4053,6 +4078,7 @@ static struct cable_detect_platform_data cable_detect_pdata = {
 	.usb_id_pin_gpio = MECHA_GPIO_USB_ID_PIN,
 	.config_usb_id_gpios = config_mecha_usb_id_gpios,
 	.get_adc_cb		= mecha_get_usbid_adc,
+	.usb_hub_enable		= mecha_usb_hub_enable,
 };
 
 static struct platform_device cable_detect_device = {
@@ -5529,6 +5555,38 @@ static void mecha_reset(void)
 	gpio_set_value(MECHA_GPIO_PS_HOLD, 0);
 }
 
+static void mecha_usb_hub_gpio_config(bool enable)
+{
+	if (enable) {
+		if (system_rev >= 2) {
+			/*XC board: hub switch off*/
+			gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_USB_HUB_SWITCH), 0);
+		}
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_USB_HUB_PWR), 0);
+		mdelay(5);
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_USB_HUB_PWR), 1);
+
+		if (system_rev >= 2) {
+			/*XC board: hub switch on*/
+			mdelay(1);
+			gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_USB_HUB_SWITCH), 1);
+		}
+		mdelay(5);
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_USB_HUB_RESET), 1);
+		mdelay(5);
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_USB_HUB_RESET), 0);
+		mdelay(5);
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_USB_HUB_RESET), 1);
+	} else {
+		if (system_rev >= 2) {
+			/*XC board: hub switch off*/
+			gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_USB_HUB_SWITCH), 0);
+		}
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_USB_HUB_RESET), 0);
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_USB_HUB_PWR), 0);
+		udelay(50);
+	}
+}
 
 void mecha_add_usb_devices(void)
 {

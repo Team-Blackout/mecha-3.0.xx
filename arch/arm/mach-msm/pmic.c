@@ -204,7 +204,7 @@ static int pmic_buf_init(void)
 
 	pm->tbuf.start = kmalloc(PMIC_BUFF_SIZE, GFP_KERNEL);
 	if (pm->tbuf.start == NULL) {
-		printk(KERN_ERR "%s:%u\n", __func__, __LINE__);
+		printk(KERN_ERR "[K] %s:%u\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
@@ -216,7 +216,7 @@ static int pmic_buf_init(void)
 	pm->rbuf.start = kmalloc(PMIC_BUFF_SIZE, GFP_KERNEL);
 	if (pm->rbuf.start == NULL) {
 		kfree(pm->tbuf.start);
-		printk(KERN_ERR "%s:%u\n", __func__, __LINE__);
+		printk(KERN_ERR "[K] %s:%u\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 	pm->rbuf.data = pm->rbuf.start;
@@ -263,7 +263,7 @@ static int pmic_put_tx_data(struct pmic_buf *tp, uint datav)
 	uint *lp;
 
 	if ((tp->size - tp->len) < sizeof(datav)) {
-		printk(KERN_ERR "%s: OVERFLOW size=%d len=%d\n",
+		printk(KERN_ERR "[K] %s: OVERFLOW size=%d len=%d\n",
 					__func__, tp->size, tp->len);
 		return -1;
 	}
@@ -281,7 +281,7 @@ static int pmic_pull_rx_data(struct pmic_buf *rp, uint *datap)
 	uint *lp;
 
 	if (rp->len < sizeof(*datap)) {
-		printk(KERN_ERR "%s: UNDERRUN len=%d\n", __func__, rp->len);
+		printk(KERN_ERR "[K] %s: UNDERRUN len=%d\n", __func__, rp->len);
 		return -1;
 	}
 	lp = (uint *)rp->data;
@@ -337,11 +337,11 @@ static int pmic_rpc_req_reply(struct pmic_buf *tbuf, struct pmic_buf *rbuf,
 
 			if (IS_ERR(pm->endpoint)) {
 				ans  = PTR_ERR(pm->endpoint);
-				printk(KERN_ERR "%s: init rpc failed! ans = %d"
+				printk(KERN_ERR "[K] %s: init rpc failed! ans = %d"
 						" for 0x%x version, fallback\n",
 						__func__, ans, rpc_vers[i]);
 			} else {
-				printk(KERN_DEBUG "%s: successfully connected"
+				printk(KERN_DEBUG "[K] %s: successfully connected"
 					" to 0x%x rpc version\n",
 					 __func__, rpc_vers[i]);
 				break;
@@ -367,7 +367,7 @@ static int pmic_rpc_req_reply(struct pmic_buf *tbuf, struct pmic_buf *rbuf,
 				PMIC_RPC_TIMEOUT);
 
 	if (len <= 0) {
-		printk(KERN_ERR "%s: rpc failed! len = %d\n", __func__, len);
+		printk(KERN_ERR "[K] %s: rpc failed! len = %d\n", __func__, len);
 		pm->endpoint = NULL;	/* re-connect later ? */
 		return len;
 	}

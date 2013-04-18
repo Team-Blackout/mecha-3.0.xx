@@ -614,6 +614,12 @@ akmd_ioctl(/*struct inode *inode,*/ struct file *file, unsigned int cmd,
 	case ECS_IOCTL_SET_YPR:
 		AKECS_Report_Value(value);
 		break;
+	case ECS_IOCTL_GET_COMP_FLAG:
+		status = atomic_read(&m_flag);
+		status |= atomic_read(&mv_flag);
+		DIF("%s: ECS_IOCTL_GET_COMP_FLAG, status = %d\n",
+			__func__, status);
+		break;
 	case ECS_IOCTL_GET_OPEN_STATUS:
 		status = AKECS_GetOpenStatus();
 		break;
@@ -652,6 +658,7 @@ akmd_ioctl(/*struct inode *inode,*/ struct file *file, unsigned int cmd,
 		if (copy_to_user(argp, &msg, sizeof(msg)))
 			return -EFAULT;
 		break;
+	case ECS_IOCTL_GET_COMP_FLAG:
 	case ECS_IOCTL_GET_OPEN_STATUS:
 	case ECS_IOCTL_GET_CLOSE_STATUS:
 		if (copy_to_user(argp, &status, sizeof(status)))

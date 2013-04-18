@@ -67,6 +67,7 @@
 
 #include "ci13xxx_udc.h"
 #include <mach/htc_battery_common.h>
+//#include "smsc251x.c"
 
 
 /******************************************************************************
@@ -2811,7 +2812,9 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 
 	return 0;
 }
-
+#ifdef CONFIG_USB_HUB
+//extern int smsc251x_usb_hub_switch(uint8_t enable);
+#endif
 static int ci13xxx_request_reset(struct usb_gadget *_gadget)
 {
 	struct ci13xxx *udc = container_of(_gadget, struct ci13xxx, gadget);
@@ -2822,10 +2825,14 @@ static int ci13xxx_request_reset(struct usb_gadget *_gadget)
 	}
 
 	USBH_DEBUG("ci13xxx_request_reset\n");
-
+#ifdef CONFIG_USB_HUB
+//	smsc251x_usb_hub_switch(0);
+#endif
 	otg_init(udc->transceiver);
 	hw_device_reset(udc);
-
+#ifdef CONFIG_USB_HUB
+//	smsc251x_usb_hub_switch(1);
+#endif
 	return 0;
 }
 

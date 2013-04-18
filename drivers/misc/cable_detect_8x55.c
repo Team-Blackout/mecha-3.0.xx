@@ -98,6 +98,7 @@ struct cable_detect_info {
 	struct delayed_work dock_work_isr;
 	struct delayed_work dock_work;
 #endif
+	int carkit_only;
 } the_cable_info;
 
 
@@ -314,6 +315,45 @@ static int cable_detect_get_type(struct cable_detect_info *pInfo)
 
 }
 
+/* detect accessory by USB PHY id pin*/
+extern int htc_get_accessory_state(void);
+static int phy_id_detect(struct cable_detect_info *pInfo)
+{
+	int type,value,n;
+
+	msleep(100);
+
+	value = gpio_get_value(pInfo->usb_id_pin_gpio);
+	CABLE_INFO("%s: usb ID pin = %d\n", __func__, value);
+
+	if (value == 0) {
+		if (pInfo->carkit_only) {
+			CABLE_INFO("carkit only = 1\n");
+			type = DOCK_STATE_CAR;
+		} else {
+			if (pInfo->config_usb_id_gpios)
+				pInfo->config_usb_id_gpios(1);
+
+			n = htc_get_accessory_state();
+
+			if (n == 1)
+				type = DOCK_STATE_CAR;
+			else if (n == 0)
+				type = DOCK_STATE_DESK;
+			else
+				type = DOCK_STATE_UNDOCKED;
+
+			if (pInfo->config_usb_id_gpios)
+				pInfo->config_usb_id_gpios(0);
+			msleep(15);
+		}
+	} else
+		type = DOCK_STATE_UNDOCKED;
+
+	CABLE_INFO("%s: type = %d\n", __func__, type);
+	return type;
+}
+
 static void cable_detect_handler(struct work_struct *w)
 {
 	struct cable_detect_info *pInfo = container_of(
@@ -334,6 +374,8 @@ static void cable_detect_handler(struct work_struct *w)
 				&pInfo->cable_detect_work, ADC_DELAY);
 			return;
 		}
+	} else if (pInfo->detect_type == CABLE_TYPE_ID_PIN) {
+		accessory_type = phy_id_detect(pInfo);
 	} else
 		accessory_type = DOCK_STATE_UNDOCKED;
 
@@ -845,6 +887,7 @@ static int cable_detect_probe(struct platform_device *pdev)
 		pInfo->mhl_version_ctrl_flag = pdata->mhl_version_ctrl_flag;
 		pInfo->mhl_1v2_power = pdata->mhl_1v2_power;
 		pInfo->get_adc_cb = pdata->get_adc_cb;
+		pInfo->carkit_only = pdata->carkit_only;
 
 		if (pInfo->config_usb_id_gpios)
 			pInfo->config_usb_id_gpios(0);

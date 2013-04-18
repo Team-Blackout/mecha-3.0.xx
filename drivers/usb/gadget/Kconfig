@@ -1027,6 +1027,13 @@ config USB_ANDROID_RNDIS
 	help
 	  Provides RNDIS ethernet function for android gadget driver.
 
+config USB_ETH_PASS_FW
+	boolean "Support internet pass through over firewall"
+	depends on USB_ANDROID_RNDIS
+	default n
+	help
+	  Support internet pass through over firewall.
+
 config USB_ANDROID_RMNET
 	boolean "RmNet function driver"
 	depends on USB_G_ANDROID

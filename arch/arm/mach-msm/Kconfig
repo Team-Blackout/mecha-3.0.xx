@@ -153,6 +153,16 @@ config ARCH_MSM9615
 	select MSM_RPM
 	select MSM_SPM_V2
 	select MSM_NATIVE_RESTART
+config ARCH_MSM8625
+	bool "MSM8625"
+	select ARCH_MSM_CORTEX_A5
+	select CPU_V7
+	select MSM_GPIOMUX
+	select ARM_GIC
+	select ARCH_MSM_CORTEXMP
+	select MULTI_IRQ_HANDLER
+	select ARM_TICKET_LOCKS
+	select MSM_RUN_QUEUE_STATS
 endmenu
 
 choice
@@ -202,8 +212,13 @@ config  ARCH_MSM_KRAITMP
 	select MSM_SMP
 	bool
 
+config  ARCH_MSM_CORTEXMP
+	select MSM_SMP
+	bool
 config  ARCH_MSM_CORTEX_A5
 	bool
+	select PERF_EVENTS if !ARCH_MSM9615
+	select HAVE_HW_BREAKPOINT if !ARCH_MSM9615
 	select HAVE_HW_BRKPT_RESERVED_RW_ACCESS
 
 config ARCH_MSM7X27A
@@ -249,7 +264,7 @@ config PERFLOCK_BOOT_LOCK
 
 config PERFLOCK_SCREEN_POLICY
         depends on PERFLOCK
-        depends on ARCH_MSM8960 || ARCH_MSM8X60 || ARCH_QSD8X50 || ARCH_MSM7X00A || ARCH_MSM7X27A || ARCH_MSM7X25
+        depends on ARCH_MSM8960 || ARCH_MSM8X60 || ARCH_QSD8X50 || ARCH_MSM7X00A || ARCH_MSM7X27A || ARCH_MSM7X25 || ARCH_MSM7X30
         default n
         bool "Change Cpufreq Policy while Screen ON/OFF"
 
@@ -378,6 +393,15 @@ config MACH_PRIMODS
 		bool "Primods"
 		help
 			Support for Primods (PDA phone).
+
+config MACH_PROTOU
+		depends on ARCH_MSM8625
+		depends on !MSM_STACKED_MEMORY
+		default n
+		select FB_MSM_MIPI_VIDEO_ONLY
+		bool "Protou"
+		help
+			Support for Protou (PDA phone).
 
 config MACH_MSM7625A_SURF
         depends on ARCH_MSM7X27A
@@ -514,13 +538,6 @@ config MACH_PRIMOU
        depends on ARCH_MSM7X30
        default n
        bool "Primou"
-       select ARCH_SPARSEMEM_ENABLE
-       select MEMORY_HOTPLUG
-       select MEMORY_HOTREMOVE
-       select ARCH_ENABLE_MEMORY_HOTPLUG
-       select ARCH_ENABLE_MEMORY_HOTREMOVE
-       select ARCH_MEMORY_PROBE
-       select ARCH_MEMORY_REMOVE
        help
          Support for the Qualcomm Primou board.
 
@@ -528,13 +545,6 @@ config MACH_PRIMOC
        depends on ARCH_MSM7X30
        default n
        bool "Primoc"
-       select ARCH_SPARSEMEM_ENABLE
-       select MEMORY_HOTPLUG
-       select MEMORY_HOTREMOVE
-       select ARCH_ENABLE_MEMORY_HOTPLUG
-       select ARCH_ENABLE_MEMORY_HOTREMOVE
-       select ARCH_MEMORY_PROBE
-       select ARCH_MEMORY_REMOVE
        help
          Support for the Qualcomm Primoc board.
 
@@ -542,13 +552,7 @@ config MACH_PRIMOTD
        depends on ARCH_MSM7X30
        default n
        bool "Primotd"
-       select ARCH_SPARSEMEM_ENABLE
-       select MEMORY_HOTPLUG
-       select MEMORY_HOTREMOVE
-       select ARCH_ENABLE_MEMORY_HOTPLUG
-       select ARCH_ENABLE_MEMORY_HOTREMOVE
-       select ARCH_MEMORY_PROBE
-       select ARCH_MEMORY_REMOVE
+       select DONT_MAP_HOLE_AFTER_MEMBANK0
        help
          Support for the Qualcomm Primotd board.
 
@@ -893,13 +897,6 @@ config MACH_KNIGHT
 config MACH_RUNNYMEDE
 	depends on ARCH_MSM7X30
 	bool "Runnymede"
-	select ARCH_SPARSEMEM_ENABLE
-	select MEMORY_HOTPLUG
-	select MEMORY_HOTREMOVE
-	select ARCH_ENABLE_MEMORY_HOTPLUG
-	select ARCH_ENABLE_MEMORY_HOTREMOVE
-	select ARCH_MEMORY_PROBE
-	select ARCH_MEMORY_REMOVE
 	help
 	  Support for the HTC Runnymede
 endmenu
@@ -950,6 +947,13 @@ config KERNEL_PMEM_SMI_REGION
 	depends on ANDROID_PMEM && ((ARCH_QSD8X50 && !PMEM_GPU0) || (ARCH_MSM8X60 && !VCM))
 	help
 	   Enable the in-kernel PMEM allocator to use SMI memory.
+
+config PANEL_SELF_REFRESH
+	depends on (MACH_SPADE || MACH_MECHA)
+	default n
+	bool "Panel Self-refresh"
+	help
+	    Support for the board Spade/Mecha Panel Self-refresh.
 
 config PMEM_GPU0
 	bool "Enable PMEM GPU0 region"
@@ -1062,6 +1066,11 @@ config HTC_BATT_8960
 	depends on HTC_BATT_CORE
 	default n
 	bool "HTC battery driver for 8960"
+config BUILD_KDDI
+        bool "Build in KDDI fixes"
+        default n
+        help
+          For KDDI we need to do some additional fixes.
 
 choice
 	prompt "Default Timer"
@@ -1463,6 +1472,13 @@ config MSM_SDIO_CTL
 	default y
 	help
 	  Provides a binary SDIO control port interface.
+
+config MSM_SDIO_DIAG
+        bool "SDIO DIAG Driver"
+        depends on (MSM_SDIO_AL && MACH_MECHA)
+        default y
+        help
+          Provides a DIAG port interface over SDIO.
 
 config MSM_ONCRPCROUTER
 	depends on MSM_SMD
@@ -2205,6 +2221,17 @@ config MSM_SLEEP_STATS
 	bool "Enable exporting of MSM sleep stats to userspace"
 	depends on CPU_IDLE
 	default n
+
+config MSM_SLEEP_STATS_DEVICE
+	bool "Enable exporting of MSM sleep device stats to userspace"
+
+config MSM_RUN_QUEUE_STATS
+	bool "Enable collection and exporting of MSM Run Queue stats to userspace"
+	depends on (MSM_SOC_REV_A || ARCH_MSM8X60 || ARCH_MSM8960)
+	help
+	 This option enalbes statistics collection on Run Queue. A daemon
+         in user mode, called MPDecision will be using this data to decide
+         on when to switch off/on the other cores.
 
 config MSM_STANDALONE_POWER_COLLAPSE
        bool "Enable standalone power collapse"

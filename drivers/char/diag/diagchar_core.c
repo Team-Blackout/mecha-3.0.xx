@@ -33,6 +33,9 @@
 static unsigned char *buf_9k;
 #endif
 #include <linux/timer.h>
+#if defined(CONFIG_MACH_MECHA)
+#include "../../../arch/arm/mach-msm/7x30-smd/sdio_diag.h"
+#endif
 
 #ifdef CONFIG_USB_ANDROID_MDM9K_DIAG
 int diag_support_mdm9k = 1;
@@ -322,7 +325,8 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	if (driver) {
 #ifdef CONFIG_DIAG_OVER_USB
 		/* If the SD logging process exits, change logging to USB mode */
-		if (driver->logging_process_id == current->tgid) {
+		if (driver->logging_process_id == current->tgid
+			&& (driver->logging_mode != USB_MODE)) {
 			driver->logging_mode = USB_MODE;
 			diagfwd_connect();
 		}
@@ -706,6 +710,7 @@ drop:
 			pr_info("[diag-dbg] late pkt now: %ld.%04ld pkt: %d\n",
 				    t.tv_sec, t.tv_usec/1000, driver->write_ptr_2->second);
 #endif
+#ifdef CONFIG_ARCH_MSM8960
 		for (i = 0; i < driver->poolsize_write_struct; i++) {
 			if (driver->buf_tbl[i].length > 0) {
 #ifdef SDQXDM_DEBUG
@@ -727,7 +732,7 @@ drop:
 				driver->buf_tbl[i].buf = 0;
 			}
 		}
-
+#endif
 		/* copy modem data */
 		if (driver->in_busy_1 == 1) {
 			/*Copy the actual data being passed*/
@@ -1087,6 +1092,12 @@ static const struct file_operations diagcharfops = {
 static int diagcharmdm_open(struct inode *inode, struct file *file)
 {
 	int i = 0;
+#if defined(CONFIG_MACH_MECHA)
+	if (!sdio_diag_initialized) {
+		DIAG_INFO("sdio diag isn't in embedded mode \n");
+		return 0;
+	}
+#endif
 
 	DIAG_INFO("%s:%s(parent:%s): tgid=%d\n", __func__,
 			current->comm, current->parent->comm, current->tgid);
@@ -1105,7 +1116,7 @@ static int diagcharmdm_open(struct inode *inode, struct file *file)
 		} else {
 			mutex_unlock(&driver->diagcharmdm_mutex);
 			DIAG_INFO("%s:reach max client count\n", __func__);
-			for (i = 0; i < driver->num_clients; i++)
+			for (i = 0; i < driver->num_mdmclients; i++)
 				DIAG_WARNING("%d) %s PID=%d", i, driver->
 					mdmclient_map[i].name,
 					driver->mdmclient_map[i].pid);
@@ -1132,6 +1143,12 @@ static int diagcharmdm_close(struct inode *inode, struct file *file)
 {
 
 	int i = 0;
+#if defined(CONFIG_MACH_MECHA)
+	if (!sdio_diag_initialized) {
+		DIAG_INFO("sdio diag isn't in embedded mode \n");
+		return 0;
+	}
+#endif
 
 	DIAG_INFO("%s:%s(parent:%s): tgid=%d\n", __func__,
 			current->comm, current->parent->comm, current->tgid);
@@ -1168,6 +1185,13 @@ static long diagcharmdm_ioctl(struct file *filp,
 {
 	int success = -1;
 
+#if defined(CONFIG_MACH_MECHA)
+	if (!sdio_diag_initialized) {
+		DIAG_INFO("sdio diag isn't in embedded mode \n");
+		return 0;
+	}
+#endif
+
 	if (iocmd == DIAG_IOCTL_SWITCH_LOGGING) {
 		mutex_lock(&driver->diagcharmdm_mutex);
 		driver->logging_mode = (int)ioarg;
@@ -1177,6 +1201,12 @@ static long diagcharmdm_ioctl(struct file *filp,
 			DIAG_INFO("diagcharmdm_ioctl enable\n");
 			diagfwd_disconnect();
 			driver->qxdm2sd_drop = 0;
+#if defined(CONFIG_MACH_MECHA)
+			driver->in_busy_mdm_1 = 0;
+			driver->in_busy_mdm_2 = 0;
+			/* Poll SMD channels to check for data*/
+			queue_work(driver->mdm_diag_workqueue, &(driver->diag_read_smd_mdm_work));
+#endif
 			driver->in_busy_sdio_1 = 0;
 			driver->in_busy_sdio_2 = 0;
 			buf_9k = kzalloc(USB_MAX_OUT_BUF, GFP_KERNEL);
@@ -1187,6 +1217,10 @@ static long diagcharmdm_ioctl(struct file *filp,
 			DIAG_INFO("diagcharmdm_ioctl disable\n");
 			diagfwd_connect();
 			driver->qxdm2sd_drop = 1;
+#if defined(CONFIG_MACH_MECHA)
+			driver->in_busy_mdm_1 = 1;
+			driver->in_busy_mdm_2 = 1;
+#endif
 
 			kfree(buf_9k);
 		}
@@ -1201,6 +1235,12 @@ static int diagcharmdm_read(struct file *file, char __user *buf, size_t count,
 
 	int index = -1, i = 0, ret = 0;
 	int num_data = 0, data_type;
+#if defined(CONFIG_MACH_MECHA)
+	if (!sdio_diag_initialized) {
+		DIAG_INFO("sdio diag isn't in embedded mode \n");
+		return 0;
+	}
+#endif
 
 	if (diag9k_debug_mask)
 		DIAG_INFO("%s:%s(parent:%s): tgid=%d\n", __func__,
@@ -1231,7 +1271,32 @@ static int diagcharmdm_read(struct file *file, char __user *buf, size_t count,
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 		/* place holder for number of data field */
 		ret += 4;
+#if defined(CONFIG_MACH_MECHA)
+		/* copy modem data */
+		if (driver->in_busy_mdm_1 == 1) {
+			num_data++;
+			/*Copy the length of data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+					 (driver->write_ptr_mdm_1->length), 4);
 
+			/*Copy the actual data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+					*(driver->buf_in_mdm_1),
+					 driver->write_ptr_mdm_1->length);
+			driver->in_busy_mdm_1 = 0;
+		}
+		if (driver->in_busy_mdm_2 == 1) {
+			num_data++;
+			/*Copy the length of data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+					 (driver->write_ptr_mdm_2->length), 4);
+			/*Copy the actual data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+					 *(driver->buf_in_mdm_2),
+					 driver->write_ptr_mdm_2->length);
+			driver->in_busy_mdm_2 = 0;
+		}
+#endif
 		if (driver->in_busy_sdio_1 == 1) {
 
 			num_data++;
@@ -1336,11 +1401,43 @@ static int diagcharmdm_write(struct file *file, const char __user *buf,
 
 	int err, pkt_type;
 	int payload_size;
-
+#if defined(CONFIG_MACH_MECHA)
+	int ret = 0;
+	unsigned char *tmp_buf = NULL;
+#endif
 	if (diag9k_debug_mask)
 		DIAG_INFO("%s:%s(parent:%s): tgid=%d\n", __func__,
 				current->comm, current->parent->comm, current->tgid);
 
+#if defined(CONFIG_MACH_MECHA)
+	if (!sdio_diag_initialized) {
+		DIAG_INFO("sdio diag isn't in embedded mode \n");
+		return 0;
+	}
+
+	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
+
+		/* Get the packet type F3/log/event/Pkt response */
+		err = copy_from_user((&pkt_type), buf, 4);
+		/*First 4 bytes indicate the type of payload - ignore these */
+		payload_size = count - 4;
+
+		if (pkt_type == USER_SPACE_LOG_TYPE) {
+			if (!mask_request_validate((unsigned char *)buf)) {
+				DIAG_ERR("mask request Invalid ..cannot send to modem \n");
+				return -EFAULT;
+			}
+
+			buf = buf + 4;
+			tmp_buf = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+			memcpy(tmp_buf, buf, payload_size);
+			msm_sdio_diag_write((void *)tmp_buf, payload_size);
+			tmp_buf = NULL;
+			return 0;
+		}
+	}
+	return ret;
+#else
 
 #ifdef CONFIG_DIAG_OVER_USB
 	if (((driver->logging_mode == USB_MODE) && (!driver->usb_connected)) ||
@@ -1376,6 +1473,7 @@ static int diagcharmdm_write(struct file *file, const char __user *buf,
 		return count;
 	}
 	return 0;
+#endif
 }
 
 static const struct file_operations diagcharmdmfops = {
@@ -1516,6 +1614,13 @@ static int __init diagchar_init(void)
 			diag_read_smd_wcnss_work_fn);
 		INIT_WORK(&(driver->diag_read_smd_wcnss_cntl_work),
 			diag_read_smd_wcnss_cntl_work_fn);
+#if defined(CONFIG_MACH_MECHA)
+		INIT_WORK(&(driver->diag_read_smd_mdm_work),
+			   sdio_diag_read_data);
+		driver->in_busy_mdm_1 = 0;
+		driver->in_busy_mdm_2 = 0;
+#endif
+
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		driver->num_mdmclients = 1;
 		init_waitqueue_head(&driver->mdmwait_q);

@@ -41,7 +41,7 @@
 
 #define D(x...) pr_info(x)
 
-#define I2C_RETRY_COUNT 1
+#define I2C_RETRY_COUNT 3
 
 #define POLLING_PROXIMITY 1
 #define NO_IGNORE_BOOT_MODE 1

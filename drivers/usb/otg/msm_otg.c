@@ -59,6 +59,42 @@ enum {
 static DEFINE_MUTEX(notify_sem);
 static DEFINE_MUTEX(smwork_sem);
 static void msm_otg_start_peripheral(struct otg_transceiver *otg, int on);
+static int carkit_phy_reset(struct otg_transceiver *otg);
+
+int htc_get_accessory_state(void)
+{
+	unsigned n;
+	int ret;
+	struct msm_otg *motg = the_msm_otg;
+
+	pm_runtime_get_sync(motg->otg.dev);
+	ret = carkit_phy_reset(&motg->otg);
+	if (ret) {
+		USBH_INFO("carkit_phy_reset failed ret %d\n",ret);
+		return -1;
+	}
+
+	clk_enable(motg->clk);
+	n = readl(USB_OTGSC);
+	/* ID pull-up register */
+	writel(n | OTGSC_IDPU, USB_OTGSC);
+
+	msleep(100);
+	n = readl(USB_OTGSC);
+	USBH_INFO("=============htc_get_accessory_state otgsc = 0x%x\n",n);
+
+	if (n & OTGSC_ID)
+		ret =1;
+	else
+		ret = 0;
+
+	writel(n & ~OTGSC_IDPU, USB_OTGSC);
+	clk_disable(motg->clk);
+
+	pm_runtime_put_noidle(motg->otg.dev);
+	pm_runtime_put_sync_suspend(motg->otg.dev);
+	return ret;
+}
 
 static void send_usb_connect_notify(struct work_struct *w)
 {
@@ -754,6 +790,55 @@ static int msm_otg_link_reset(struct msm_otg *motg)
 	return 0;
 }
 
+static int carkit_phy_reset(struct otg_transceiver *otg)
+{
+	struct msm_otg *motg = container_of(otg, struct msm_otg, otg);
+	struct msm_otg_platform_data *pdata = motg->pdata;
+	int ret;
+	u32 val = 0;
+	u32 ulpi_val = 0;
+	USBH_INFO("%s\n", __func__);
+
+	clk_enable(motg->clk);
+	if (motg->pdata->phy_reset)
+		ret = motg->pdata->phy_reset();
+	else
+		ret = msm_otg_phy_reset(motg);
+	if (ret) {
+		USBH_ERR("phy_reset failed\n");
+		return ret;
+	}
+
+	ret = msm_otg_link_reset(motg);
+	if (ret) {
+		dev_err(otg->dev, "link reset failed\n");
+		return ret;
+	}
+	msleep(100);
+
+	ulpi_init(motg);
+
+	/* Ensure that RESET operation is completed before turning off clock */
+	mb();
+
+	clk_disable(motg->clk);
+
+	if ((pdata->otg_control == OTG_PHY_CONTROL) || motg->pdata->phy_notify_enabled) {
+		val = readl_relaxed(USB_OTGSC);
+		if (pdata->mode == USB_OTG) {
+			ulpi_val = ULPI_INT_IDGRD | ULPI_INT_SESS_VALID;
+			val |= OTGSC_IDIE | OTGSC_BSVIE;
+		} else if (pdata->mode == USB_PERIPHERAL) {
+			ulpi_val = ULPI_INT_SESS_VALID;
+			val |= OTGSC_BSVIE;
+		}
+		writel_relaxed(val, USB_OTGSC);
+		ulpi_write(otg, ulpi_val, ULPI_USB_INT_EN_RISE);
+		ulpi_write(otg, ulpi_val, ULPI_USB_INT_EN_FALL);
+	}
+	return 0;
+}
+
 static int msm_otg_reset(struct otg_transceiver *otg)
 {
 	struct msm_otg *motg = container_of(otg, struct msm_otg, otg);
@@ -870,7 +955,9 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	if (motg->pdata->phy_type == CI_45NM_INTEGRATED_PHY) {
 		ulpi_read(otg, 0x14);
-		if ((pdata->otg_control == OTG_PHY_CONTROL) || motg->pdata->phy_notify_enabled)
+		if ((pdata->otg_control == OTG_PHY_CONTROL) ||
+			(pdata->otg_control == OTG_PMIC_CONTROL) ||
+			motg->pdata->phy_notify_enabled)
 			ulpi_write(otg, 0x01, 0x30);
 		ulpi_write(otg, 0x08, 0x09);
 	}
@@ -1211,6 +1298,7 @@ static int msm_otg_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 	}
 
 	if (!host) {
+		USB_WARNING("%s: no host\n", __func__);
 		if (otg->state == OTG_STATE_A_HOST) {
 			pm_runtime_get_sync(otg->dev);
 			usb_unregister_notify(&motg->usbdev_nb);
@@ -1240,6 +1328,7 @@ static int msm_otg_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 	 * or peripheral is already registered with us.
 	 */
 	if (motg->pdata->mode == USB_HOST || otg->gadget) {
+		USB_WARNING("host only, otg->gadget exist\n");
 		pm_runtime_get_sync(otg->dev);
 		schedule_work(&motg->sm_work);
 	}
@@ -1299,6 +1388,7 @@ static int msm_otg_set_peripheral(struct otg_transceiver *otg,
 	}
 
 	if (!gadget) {
+		USB_WARNING("%s: no gadget\n", __func__);
 		if (otg->state == OTG_STATE_B_PERIPHERAL) {
 			pm_runtime_get_sync(otg->dev);
 			msm_otg_start_peripheral(otg, 0);
@@ -1319,6 +1409,7 @@ static int msm_otg_set_peripheral(struct otg_transceiver *otg,
 	 * or host is already registered with us.
 	 */
 	if (motg->pdata->mode == USB_PERIPHERAL || otg->host) {
+		USB_WARNING("peripheral only, otg->host exist\n");
 		pm_runtime_get_sync(otg->dev);
 		schedule_work(&motg->sm_work);
 	}
@@ -1929,6 +2020,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 	USBH_INFO("%s: state:%s bit:0x%08x\n", __func__,
 		state_string(otg->state), (unsigned) motg->inputs);
 
+	if (!otg->dev) {
+		USB_ERR("%s: otg->dev was null. state: %d\n",
+						__func__, otg->state);
+		return;
+	}
 	pm_runtime_resume(otg->dev);
 	mutex_lock(&smwork_sem);
 	switch (otg->state) {
@@ -2340,11 +2436,10 @@ void msm_otg_set_vbus_state(int online)
 	if (!atomic_read(&motg->in_lpm) || !online)
 		return;
 #endif
-
 	if (online) {
 		set_bit(B_SESS_VLD, &motg->inputs);
-		/* VBUS interrupt will be triggered while HOST 5V power turn on */
-		/* set_bit(ID, &motg->inputs); */
+		/* VBUS interrupt will be triggered while HOST
+		 * 5V power turn on */
 		/*USB*/
 		if (motg->pdata->usb_uart_switch)
 			motg->pdata->usb_uart_switch(0);
@@ -2432,6 +2527,9 @@ static ssize_t msm_otg_mode_write(struct file *file, const char __user *ubuf,
 		goto out;
 	}
 
+	USB_INFO("%s: %s\n", __func__, (req_mode == USB_HOST)?"host"
+			:(req_mode == USB_PERIPHERAL)?"peripheral":"none");
+
 	switch (req_mode) {
 	case USB_NONE:
 		switch (otg->state) {
@@ -2487,7 +2585,7 @@ static int msm_otg_show_chg_type(struct seq_file *s, void *unused)
 {
 	struct msm_otg *motg = s->private;
 
-	seq_printf(s, chg_to_string(motg->chg_type));
+	seq_printf(s, "%s\n", chg_to_string(motg->chg_type));
 	return 0;
 }
 
@@ -3022,6 +3120,8 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 
 	if (otg->host || otg->gadget)
 		return -EBUSY;
+
+	USB_INFO("%s\n", __func__);
 
 	if (pdev->dev.of_node)
 		msm_otg_setup_devices(pdev, motg->pdata->mode, false);

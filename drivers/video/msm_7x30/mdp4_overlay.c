@@ -89,6 +89,11 @@
 #define OVERLAY_UPDATE_SCREEN_EN	1
 #define OVERLAY_UPDATE_SCREEN_DIS	0
 
+#ifdef CONFIG_PANEL_SELF_REFRESH
+extern struct panel_icm_info *panel_icm;
+extern wait_queue_head_t panel_update_wait_queue;
+#endif
+
 static int z_order_change = 0;
 #ifdef CONFIG_FB_MSM_LCDC
 static void mdp4_reset_mdp_clk(struct work_struct *w);
@@ -513,11 +518,68 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	mdp_writel(pipe->mdp, pipe->phasey_step, rgb_base + 0x0060);
 }
 
+static void mdp4_overlay_vg_get_src_offset(struct mdp4_overlay_pipe *pipe,
+	uint32_t vg_base, uint32_t *luma_off, uint32_t *chroma_off)
+{
+	uint32_t src_xy;
+	*luma_off = 0;
+	*chroma_off = 0;
+
+	if (pipe->src_x && (pipe->frame_format == MDP4_FRAME_FORMAT_LINEAR)) {
+		src_xy = (pipe->src_y << 16) | pipe->src_x;
+		src_xy &= 0xffff0000;
+	    mdp_writel(pipe->mdp, src_xy, vg_base + 0x0004); /* MDP_RGB_SRC_XY */
+
+		switch (pipe->src_format) {
+		case MDP_Y_CR_CB_H2V2:
+		case MDP_Y_CR_CB_GH2V2:
+		case MDP_Y_CB_CR_H2V2:
+				*luma_off = pipe->src_x;
+				*chroma_off = pipe->src_x/2;
+			break;
+
+		case MDP_Y_CBCR_H2V2_TILE:
+		case MDP_Y_CRCB_H2V2_TILE:
+		case MDP_Y_CBCR_H2V2:
+		case MDP_Y_CRCB_H2V2:
+		case MDP_Y_CRCB_H1V1:
+		case MDP_Y_CBCR_H1V1:
+		case MDP_Y_CRCB_H2V1:
+		case MDP_Y_CBCR_H2V1:
+			*luma_off = pipe->src_x;
+			*chroma_off = pipe->src_x;
+			break;
+
+		case MDP_YCRYCB_H2V1:
+			if (pipe->src_x & 0x1)
+				pipe->src_x += 1;
+			*luma_off += pipe->src_x * 2;
+			break;
+
+		case MDP_ARGB_8888:
+		case MDP_RGBA_8888:
+		case MDP_BGRA_8888:
+		case MDP_RGBX_8888:
+		case MDP_RGB_565:
+		case MDP_BGR_565:
+		case MDP_XRGB_8888:
+		case MDP_RGB_888:
+			*luma_off = pipe->src_x * pipe->bpp;
+			break;
+
+		default:
+			pr_err("Source format %u not supported for x offset adjustment\n",
+				pipe->src_format);
+			break;
+		}
+	}
+}
+
 int mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 {
 	uint32_t vg_base;
 	uint32_t frame_size, src_size, src_xy, dst_size, dst_xy;
-	uint32_t format, pattern;
+	uint32_t format, pattern, luma_offset, chroma_offset;
 	uint32_t dst_newx = 0, dst_newy = 0;
 	int pnum, ret = 0;
 
@@ -543,10 +605,11 @@ int mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	pipe->op_mode = 0;
 #endif
 
+    luma_offset = 0;
+    chroma_offset = 0;
 	/* not RGB use VG pipe */
 	if (pipe->pipe_type != OVERLAY_TYPE_RGB)
 		pipe->op_mode |= (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR);
-
 
 	mdp4_scale_setup(pipe);
 
@@ -576,16 +639,29 @@ int mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	mdp_writel(pipe->mdp, src_xy, vg_base + 0x0004);	/* MDP_RGB_SRC_XY */
 	mdp_writel(pipe->mdp, dst_size, vg_base + 0x0008);	/* MDP_RGB_DST_SIZE */
 	mdp_writel(pipe->mdp, dst_xy, vg_base + 0x000c);	/* MDP_RGB_DST_XY */
-	mdp_writel(pipe->mdp, frame_size, vg_base + 0x0048);	/* TILE frame size */
+    if (pipe->frame_format != MDP4_FRAME_FORMAT_LINEAR)
+        mdp_writel(pipe->mdp, frame_size, vg_base + 0x0048);	/* TILE frame size */
+
+
+	if (pipe->pipe_type != OVERLAY_TYPE_RGB){
+        mdp4_overlay_vg_get_src_offset(pipe, vg_base, &luma_offset, &chroma_offset);
+    }
+    else {
+        luma_offset = 0;
+        chroma_offset = 0;
+    }
 
 	/* luma component plane */
-	mdp_writel(pipe->mdp, pipe->srcp0_addr, vg_base + 0x0010);
+	mdp_writel(pipe->mdp, pipe->srcp0_addr + luma_offset, vg_base + 0x0010);
 
 	/* chroma component plane */
-	mdp_writel(pipe->mdp, pipe->srcp1_addr, vg_base + 0x0014);
+	mdp_writel(pipe->mdp, pipe->srcp1_addr + chroma_offset, vg_base + 0x0014);
 
+    /* planar color 2*/
+	mdp_writel(pipe->mdp, pipe->srcp2_addr + chroma_offset, vg_base + 0x0018);
 
 	mdp_writel(pipe->mdp, pipe->srcp1_ystride << 16 | pipe->srcp0_ystride, vg_base + 0x0040);
+	mdp_writel(pipe->mdp, pipe->srcp3_ystride << 16 | pipe->srcp2_ystride, vg_base + 0x0044);
 
 	mdp_writel(pipe->mdp, format, vg_base + 0x0050);	/* MDP_RGB_SRC_FORMAT */
 	mdp_writel(pipe->mdp, pattern, vg_base + 0x0054);	/* MDP_RGB_SRC_UNPACK_PATTERN */
@@ -616,6 +692,7 @@ int mdp4_overlay_format2type(uint32_t format)
 	case MDP_Y_CBCR_H2V1:
 	case MDP_Y_CRCB_H2V2:
 	case MDP_Y_CBCR_H2V2:
+	case MDP_Y_CR_CB_GH2V2:
 	case MDP_Y_CBCR_H2V2_TILE:
 	case MDP_Y_CRCB_H2V2_TILE:
 		return OVERLAY_TYPE_VIDEO;
@@ -844,6 +921,19 @@ int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe)
 		}
 		pipe->bpp = 2;	/* 2 bpp */
 		break;
+	case MDP_Y_CR_CB_H2V2:
+	case MDP_Y_CR_CB_GH2V2:
+	case MDP_Y_CB_CR_H2V2:
+		pipe->frame_format = MDP4_FRAME_FORMAT_LINEAR;
+		pipe->fetch_plane = OVERLAY_PLANE_PLANAR;
+		pipe->a_bit = 0;
+		pipe->r_bit = 3;	/* R, 8 bits */
+		pipe->b_bit = 3;	/* B, 8 bits */
+		pipe->g_bit = 3;	/* G, 8 bits */
+		pipe->alpha_enable = 0;
+		pipe->chroma_sample = MDP4_CHROMA_420;
+		pipe->bpp = 2;	/* 2 bpp */
+		break;
 	default:
 		/* not likely */
 		return -ERANGE;
@@ -927,6 +1017,8 @@ void transp_color_key(int format, uint32_t transp,
 		break;
 	case MDP_Y_CRCB_H2V2:
 	case MDP_Y_CRCB_H2V1:
+	case MDP_Y_CR_CB_H2V2:
+	case MDP_Y_CR_CB_GH2V2:
 		b_start = 0;
 		g_start = 16;
 		r_start = 8;
@@ -976,7 +1068,8 @@ uint32_t mdp4_overlay_format(struct mdp4_overlay_pipe *pipe)
 
 	format |= (pipe->frame_format << 29);
 
-	if (pipe->fetch_plane == OVERLAY_PLANE_PSEUDO_PLANAR) {
+	if (pipe->fetch_plane == OVERLAY_PLANE_PSEUDO_PLANAR ||
+		pipe->fetch_plane == OVERLAY_PLANE_PLANAR) {
 		/* video/graphic */
 		format |= (pipe->fetch_plane << 19);
 		format |= (pipe->chroma_site << 28);
@@ -1647,46 +1740,69 @@ static int mdp4_pull_mode(struct mdp4_overlay_pipe *pipe)
 	return lcdc;
 }
 
-#ifdef CONFIG_MACH_PRIMOTD
 /* Temporary workaround before QCT release formal fix. */
 int mdp4_overlay_alter_req(struct mdp_overlay *req)
 {
 
 	/*1280*720 portrait play*/
-	if (req->src.format == MDP_Y_CRCB_H2V2_TILE &&
-		(req->src.width == 1280 ||
-			req->src.height == 720)
-		) {
-		if (req->dst_rect.w == 480) {
-			if (req->dst_rect.h >= 320 ||
-			(req->dst_rect.h >= 180 &&
-			req->user_data[0] == 0)) {
-			/*1280*720 fix fullscreen cut*/
-			//pr_info("%s: reject alter req  of 720p.", __func__);
-			req->src_rect.x = 40;
-            req->src_rect.y = 10;
-			req->src_rect.w = 1120;
-            req->src_rect.h = 680;
+    int video_size = 0;
+    video_size = req->src.width * req->src.height / 10000;
 
-		} else {
-			//pr_info("%s: alter req due to down-scaling issue of 720p.",__func__);
-			req->src_rect.x = 40;
-            req->src_rect.y = 10;
-			req->src_rect.w = 1120;
-            req->src_rect.h = 680;
+	//PR_DISP_ERR("======req->dst_rect.h %d,req->dst_rect.w %d=======\n",req->dst_rect.h,req->dst_rect.w);
+	if (req->user_data[0] == 0 && video_size > 46){ //Cut src to small size when it is big than 480*960.
+        if (req->dst_rect.w == 480){
+            if (req->src.width == 1280){ //For 720P video, we need to cut both src width and height size.
+                if (req->src.height >= 640) {
+                    /*1280*720 fix fullscreen cut*/
+#ifdef CONFIG_MACH_PRIMOTD
+			req->src_rect.x = 80;
+			req->src_rect.y = (req->src.height - 640) / 2;
+			req->src_rect.w = req->src.width - 160;
+			req->src_rect.h = 640;
+#else
+#ifdef CONFIG_MACH_SPADE
+			req->src_rect.x = 60;
+			req->src_rect.y = 90;
+			req->src_rect.w = 800;
+			req->src_rect.h = 480;
+#else
+			req->src_rect.x = 60;
+			req->src_rect.y = 90;
+			req->src_rect.w = 960;
+			req->src_rect.h = 540;
+#endif
+#endif
 		}
-	} else if (req->dst_rect.h == 135 && req->dst_rect.w == 240) {
-	/*720*1280 video trim */
-		//pr_info("%s: alter req due to down-scaling issue of 720p(trim).", __func__);
-		req->src_rect.x = 60;
-		req->src_rect.y = 90;
-		req->src_rect.w = 800;
-		req->src_rect.h = 480;
+                else {// If it's big enough, like 1280*544, we still need to cut it to smaller size.
+                    req->src_rect.x = 80;
+                    req->src_rect.w = req->src.width - 160;
+                }
+            }
+            else if(video_size >= 64){
+                req->src_rect.x = 80;
+                req->src_rect.y = 20;
+                req->src_rect.w = req->src.width - 160;
+                req->src_rect.h = req->src.height - 40;
+            }
+        }
+    }
+	else if (req->dst_rect.h == 426 && req->dst_rect.w == 240) {
+		if (req->src.width == 1280 || req->src.height == 720) {
+			/*720*1280 video trim */
+			req->src_rect.x = 60;
+			req->src_rect.y = 90;
+			req->src_rect.w = 800;
+			req->src_rect.h = 480;
+		} else if (req->src.height == 1280) {
+			/*1280*720 video trim*/
+			req->src_rect.x = 90;
+			req->src_rect.y = 60;
+			req->src_rect.w = 480;
+			req->src_rect.h = 800;
 		}
-	}
+        }
 	return 0;
 }
-#endif
 
 void mdp4_dump_ov(struct mdp_overlay *ov);
 
@@ -1705,10 +1821,8 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 #ifdef DEBUG_OVERLAY
 	mdp4_dump_ov(req);
 #endif
-
-#ifdef CONFIG_MACH_PRIMOTD
-	mdp4_overlay_alter_req(req);
-#endif
+	if(mdp->out_if[MSM_LCDC_INTERFACE].registered == 1)//Workaround: Reduce src size to avoid MDP underrun in LCDC panel
+		mdp4_overlay_alter_req(req);
 
 #ifdef CONFIG_PANEL_SELF_REFRESH
 	if (mdp->mdp_dev.overrides & MSM_MDP_RGB_PANEL_SELE_REFRESH) {
@@ -1814,7 +1928,7 @@ int mdp4_overlay_unset(struct mdp_device *mdp_dev, struct fb_info *info, int ndx
 	clk_disable(mdp->clk);
 
 #ifdef CONFIG_FB_MSM_LCDC
-	if(reset_mdp_clk_wq) /* slow down the mdp clk after unset overlay */
+	if(reset_mdp_clk_wq && mdp->out_if[MSM_LCDC_INTERFACE].registered == 1) /* slow down the mdp clk after unset overlay */
 		queue_delayed_work(reset_mdp_clk_wq, &reset_mdp_clk_work, HZ/10);
 #endif
 	return 0;
@@ -1934,6 +2048,10 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 	ulong len = 0;
 	struct file *p_src_file = 0;
 	int pull;
+#ifdef CONFIG_FB_MSM_LCDC
+    int video_size = 0;
+#endif
+
 #ifdef CONFIG_PANEL_SELF_REFRESH
 	unsigned long irq_flags = 0;
 #endif
@@ -1985,7 +2103,11 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 
 #ifdef CONFIG_FB_MSM_LCDC
 
-    if(MDP_Y_CRCB_H2V2_TILE == pipe->src_format){
+    video_size = pipe->src_width * pipe->src_height / 10000;
+    if(mdp->out_if[MSM_LCDC_INTERFACE].registered == 1 &&
+    ((pipe->req_data.user_data[0] == 0 && video_size > 46 )||
+	(321 == pipe->dst_w && 192 == pipe->dst_h) ||
+	(240 == pipe->dst_w && 426 == pipe->dst_h))) {
         clk_set_rate(mdp->ebi1_clk, 192000000);
         clk_set_rate(mdp->clk, 192000000);
         clk_enable(mdp->clk);
@@ -2015,6 +2137,37 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 
 		pipe->srcp0_ystride = pipe->src_width;
 		pipe->srcp1_ystride = pipe->src_width;
+	} else if (pipe->fetch_plane == OVERLAY_PLANE_PLANAR) {
+
+			if (pipe->src_format == MDP_Y_CR_CB_GH2V2) {
+				addr += (ALIGN(pipe->src_width, 16) *
+					pipe->src_height);
+				pipe->srcp1_addr = addr;
+				addr += ((ALIGN((pipe->src_width / 2), 16)) *
+					(pipe->src_height / 2));
+				pipe->srcp2_addr = addr;
+			} else {
+				addr += (pipe->src_width * pipe->src_height);
+				pipe->srcp1_addr = addr;
+				addr += ((pipe->src_width / 2) *
+					(pipe->src_height / 2));
+				pipe->srcp2_addr = addr;
+			}
+
+		/* mdp planar format expects Cb in srcp1 and Cr in p2 */
+		if ((pipe->src_format == MDP_Y_CR_CB_H2V2) ||
+			(pipe->src_format == MDP_Y_CR_CB_GH2V2))
+			swap(pipe->srcp1_addr, pipe->srcp2_addr);
+
+		if (pipe->src_format == MDP_Y_CR_CB_GH2V2) {
+			pipe->srcp0_ystride = ALIGN(pipe->src_width, 16);
+			pipe->srcp1_ystride = ALIGN(pipe->src_width / 2, 16);
+			pipe->srcp2_ystride = ALIGN(pipe->src_width / 2, 16);
+		} else {
+			pipe->srcp0_ystride = pipe->src_width;
+			pipe->srcp1_ystride = pipe->src_width / 2;
+			pipe->srcp2_ystride = pipe->src_width / 2;
+		}
 	}
 
 	if (pipe->pipe_num >= OVERLAY_PIPE_VG1) {

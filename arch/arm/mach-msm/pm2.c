@@ -529,13 +529,13 @@ static void msm_pm_config_hw_before_swfi(void)
 static void msm_pm_timeout(void)
 {
 #if defined(CONFIG_MSM_PM_TIMEOUT_RESET_CHIP)
-	printk(KERN_EMERG "%s(): resetting chip\n", __func__);
+	printk(KERN_EMERG "[K] %s(): resetting chip\n", __func__);
 	msm_proc_comm(PCOM_RESET_CHIP_IMM, NULL, NULL);
 #elif defined(CONFIG_MSM_PM_TIMEOUT_RESET_MODEM)
-	printk(KERN_EMERG "%s(): resetting modem\n", __func__);
+	printk(KERN_EMERG "[K] %s(): resetting modem\n", __func__);
 	msm_proc_comm_reset_modem_now();
 #elif defined(CONFIG_MSM_PM_TIMEOUT_HALT)
-	printk(KERN_EMERG "%s(): halting\n", __func__);
+	printk(KERN_EMERG "[K] %s(): halting\n", __func__);
 #endif
 	for (;;)
 		;
@@ -631,7 +631,7 @@ static int msm_pm_poll_state(int nr_grps, struct msm_pm_polled_group *grps)
 		udelay(1);
 	}
 
-	printk(KERN_ERR "%s failed:\n", __func__);
+	printk(KERN_ERR "[K] %s failed:\n", __func__);
 	for (k = 0; k < nr_grps; k++)
 		printk(KERN_ERR "(%x, %x, %x, %x) %x\n",
 			grps[k].bits_all_set, grps[k].bits_all_clear,
@@ -1081,7 +1081,7 @@ static int msm_pm_power_collapse
 	ret = msm_pm_poll_state(ARRAY_SIZE(state_grps), state_grps);
 
 	if (ret < 0) {
-		printk(KERN_EMERG "%s(): power collapse entry "
+		printk(KERN_EMERG "[K] %s(): power collapse entry "
 			"timed out waiting for Modem's response\n", __func__);
 		goto power_collapse_early_exit;
 	}
@@ -1135,10 +1135,10 @@ static int msm_pm_power_collapse
 	l2x0_suspend();
 #endif
 	if (!from_idle)
-		printk(KERN_INFO "[R] suspend end\n");
+		printk(KERN_INFO "[K][R] suspend end\n");
 	collapsed = msm_pm_collapse();
 	if (!from_idle)
-		printk(KERN_INFO "[R] resume start\n");
+		printk(KERN_INFO "[K][R] resume start\n");
 #ifdef CONFIG_CACHE_L2X0
 	l2x0_resume(collapsed);
 #endif
@@ -1165,7 +1165,7 @@ static int msm_pm_power_collapse
 
 	if (acpuclk_set_rate(smp_processor_id(), saved_acpuclk_rate,
 			SETRATE_PC) < 0)
-		printk(KERN_ERR "%s(): failed to restore clock rate(%lu)\n",
+		printk(KERN_ERR "[K] %s(): failed to restore clock rate(%lu)\n",
 			__func__, saved_acpuclk_rate);
 
 	msm_irq_exit_sleep1(msm_pm_smem_data->irq_mask,
@@ -1185,7 +1185,7 @@ static int msm_pm_power_collapse
 	ret = msm_pm_poll_state(ARRAY_SIZE(state_grps), state_grps);
 
 	if (ret < 0) {
-		printk(KERN_EMERG "%s(): power collapse exit "
+		printk(KERN_EMERG "[K] %s(): power collapse exit "
 			"timed out waiting for Modem's response\n", __func__);
 		goto power_collapse_early_exit;
 	}
@@ -1225,7 +1225,7 @@ static int msm_pm_power_collapse
 	ret = msm_pm_poll_state(ARRAY_SIZE(state_grps), state_grps);
 
 	if (ret < 0) {
-		printk(KERN_EMERG "%s(): power collapse WFPI "
+		printk(KERN_EMERG "[K] %s(): power collapse WFPI "
 			"timed out waiting for Modem's response\n", __func__);
 		/* comment here to fix time shift issue */
 		/* goto power_collapse_restore_gpio_bail; */
@@ -1284,7 +1284,7 @@ power_collapse_early_exit:
 	MSM_PM_DEBUG_PRINT_STATE("msm_pm_power_collapse(): EARLY_EXIT EE");
 
 	if (ret < 0)
-		printk(KERN_EMERG "%s(): power collapse EARLY_EXIT "
+		printk(KERN_EMERG "[K] %s(): power collapse EARLY_EXIT "
 			"timed out waiting for Modem's response\n", __func__);
 
 	if (ret == 1) {
@@ -1347,10 +1347,10 @@ static int msm_pm_power_collapse_standalone(bool from_idle)
 #endif
 
 	if (!from_idle)
-		printk(KERN_INFO "[R] suspend end\n");
+		printk(KERN_INFO "[K][R] suspend end\n");
 	collapsed = msm_pm_collapse();
 	if (!from_idle)
-		printk(KERN_INFO "[R] resume start\n");
+		printk(KERN_INFO "[K][R] resume start\n");
 
 #ifdef CONFIG_CACHE_L2X0
 	l2x0_resume(collapsed);
@@ -1423,7 +1423,7 @@ static int msm_pm_swfi(bool from_idle, bool ramp_acpu)
 		if (acpuclk_set_rate(smp_processor_id(), saved_acpuclk_rate,
 				SETRATE_SWFI) < 0)
 			printk(KERN_ERR
-				"%s(): failed to restore clock rate(%lu)\n",
+				"[K] %s(): failed to restore clock rate(%lu)\n",
 				__func__, saved_acpuclk_rate);
 	}
 
@@ -1491,7 +1491,7 @@ void arch_idle(void)
 	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
 		break;
 	default:
-		printk(KERN_ERR "idle sleep mode is invalid: %d\n",
+		printk(KERN_ERR "[K] idle sleep mode is invalid: %d\n",
 			msm_pm_idle_sleep_mode);
 #ifdef CONFIG_MSM_IDLE_STATS
 		exit_stat = MSM_PM_STAT_IDLE_SPIN;
@@ -1636,7 +1636,7 @@ arch_idle_exit:
 #ifdef CONFIG_MSM_IDLE_STATS
 	t2 = ktime_to_ns(ktime_get());
 	msm_pm_add_stat(exit_stat, t2 - t1);
-	#if defined(CONFIG_MACH_PRIMODS) || defined(CONFIG_MACH_GOLFU)||defined(CONFIG_MACH_PRIMODD)
+	#if defined(CONFIG_MACH_PRIMODS) || defined(CONFIG_MACH_GOLFU)||defined(CONFIG_MACH_PRIMODD)||defined(CONFIG_MACH_PROTOU)
 	htc_idle_stat_add(sleep_mode, (u32)(t2 - t1)/1000);
 	#endif
 #endif /* CONFIG_MSM_IDLE_STATS */
@@ -1697,7 +1697,7 @@ static int msm_pm_enter(suspend_state_t state)
 	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
 		break;
 	default:
-		printk(KERN_ERR "suspend sleep mode is invalid: %d\n",
+		printk(KERN_ERR "[K] suspend sleep mode is invalid: %d\n",
 			msm_pm_sleep_mode);
 		return -EINVAL;
 	}
@@ -1768,16 +1768,16 @@ static int msm_pm_enter(suspend_state_t state)
 	} else if (allow[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE]) {
 		ret = msm_pm_power_collapse_standalone(false);
 	} else if (allow[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT]) {
-		printk(KERN_INFO "[R] suspend end\n");
+		printk(KERN_INFO "[K][R] suspend end\n");
 		ret = msm_pm_swfi(false, true);
-		printk(KERN_INFO "[R] resume start\n");
+		printk(KERN_INFO "[K][R] resume start\n");
 		if (ret)
 			while (!msm_irq_pending())
 				udelay(1);
 	} else if (allow[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT]) {
-		printk(KERN_INFO "[R] suspend end\n");
+		printk(KERN_INFO "[K]R] suspend end\n");
 		msm_pm_swfi(false, false);
-		printk(KERN_INFO "[R] resume start\n");
+		printk(KERN_INFO "[K][R] resume start\n");
 	}
 
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND, KERN_INFO,
@@ -1800,7 +1800,7 @@ void msm_pm_flush_console(void)
 	console_flushed = true;
 
 	printk(KERN_EMERG "\n");
-	printk(KERN_EMERG "Restarting %s\n", linux_banner);
+	printk(KERN_EMERG "[K] Restarting %s\n", linux_banner);
 	if (console_trylock()) {
 		console_unlock();
 		return;
@@ -1810,9 +1810,9 @@ void msm_pm_flush_console(void)
 
 	local_irq_disable();
 	if (!console_trylock())
-		printk(KERN_EMERG "msm_restart: Console was locked! Busting\n");
+		printk(KERN_EMERG "[K] msm_restart: Console was locked! Busting\n");
 	else
-		printk(KERN_EMERG "msm_restart: Console was locked!\n");
+		printk(KERN_EMERG "[K] msm_restart: Console was locked!\n");
 	console_unlock();
 }
 
@@ -1857,7 +1857,7 @@ static void msm_pm_power_off(void)
 
 #ifdef CONFIG_HTC_OFFMODE_ALARM
 	set_offmode_alarm();
-	printk(KERN_INFO "msm_pm_power_off:wakeup after %d\r\n", msm_wakeup_after);
+	printk(KERN_INFO "[K] msm_pm_power_off:wakeup after %d\r\n", msm_wakeup_after);
 	if (msm_wakeup_after)
 		msm_proc_comm(PCOM_SET_RTC_ALARM, &msm_wakeup_after, 0);
 #endif
@@ -1868,7 +1868,7 @@ static void msm_pm_power_off(void)
 
 static void msm_pm_restart(char str, const char *cmd)
 {
-	pr_info("%s: restart_reason 0x%x, cmd %s\n", __func__, restart_reason, (cmd) ? cmd : "NULL");
+	pr_info("[K] %s: restart_reason 0x%x, cmd %s\n", __func__, restart_reason, (cmd) ? cmd : "NULL");
 
 	/* always reboot device through proc comm */
 	if (restart_reason == RESTART_REASON_RIL_FATAL)
@@ -1877,9 +1877,9 @@ static void msm_pm_restart(char str, const char *cmd)
 		msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
 
 #if defined(CONFIG_MSM_RMT_STORAGE_SERVER) || defined(CONFIG_MSM_RMT_STORAGE_CLIENT)
-	printk(KERN_INFO "from %s\r\n", __func__);
+	printk(KERN_INFO "[K] from %s\r\n", __func__);
 	wait_rmt_final_call_back(10);
-	printk(KERN_INFO "back %s\r\n", __func__);
+	printk(KERN_INFO "[K] back %s\r\n", __func__);
 	/* wait 2 seconds to let radio reset device after the final EFS sync*/
 	mdelay(2000);
 #else
@@ -1891,7 +1891,7 @@ static void msm_pm_restart(char str, const char *cmd)
 
 	/* hard reboot if possible */
 	if (msm_hw_reset_hook) {
-		printk(KERN_INFO "%s : Do HW_RESET by APP not by RADIO\r\n", __func__);
+		printk(KERN_INFO "[K] %s : Do HW_RESET by APP not by RADIO\r\n", __func__);
 		msm_hw_reset_hook();
 	}
 
@@ -2002,7 +2002,7 @@ static int __init msm_pm_init(void)
 	msm_pm_smem_data = smem_alloc(SMEM_APPS_DEM_SLAVE_DATA,
 		sizeof(*msm_pm_smem_data));
 	if (msm_pm_smem_data == NULL) {
-		printk(KERN_ERR "%s: failed to get smsm_data\n", __func__);
+		printk(KERN_ERR "[K] %s: failed to get smsm_data\n", __func__);
 		return -ENODEV;
 	}
 
@@ -2012,7 +2012,7 @@ static int __init msm_pm_init(void)
 
 	ret = smsm_change_intr_mask(SMSM_POWER_MASTER_DEM, 0xFFFFFFFF, 0);
 	if (ret) {
-		printk(KERN_ERR "%s: failed to clear interrupt mask, %d\n",
+		printk(KERN_ERR "[K] %s: failed to clear interrupt mask, %d\n",
 			__func__, ret);
 		return ret;
 	}

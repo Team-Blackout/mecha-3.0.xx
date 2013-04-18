@@ -570,7 +570,7 @@ wait_for_int:
 		remote_mutex_unlock(&dev->r_lock);
 	pm_qos_update_request(&dev->pm_qos_req,
 			      PM_QOS_DEFAULT_VALUE);
-	mod_timer(&dev->pwr_timer, (jiffies + 3*HZ));
+	mod_timer(&dev->pwr_timer, (jiffies + 1));
 	mutex_unlock(&dev->mlock);
 	return ret;
 }

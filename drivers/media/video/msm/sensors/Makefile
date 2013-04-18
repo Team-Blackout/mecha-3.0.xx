@@ -1,6 +1,9 @@
 GCC_VERSION      := $(shell $(CONFIG_SHELL) $(PWD)/scripts/gcc-version.sh $(CROSS_COMPILE)gcc)
 EXTRA_CFLAGS += -Idrivers/media/video/msm
 EXTRA_CFLAGS += -Idrivers/media/video/msm/io
+ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
+EXTRA_CFLAGS += -Idrivers/media/video/msm/csi
+endif
 obj-$(CONFIG_MSM_CAMERA_SENSOR) += msm_sensor.o
 obj-$(CONFIG_IMX074) += imx074_v4l2.o
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
@@ -24,7 +27,9 @@ obj-$(CONFIG_MACH_VIVOW_CT) += s5k6aafx_reg_vivo.o
 obj-$(CONFIG_MACH_HOLIDAY) += s5k3h2yx_reg_holiday.o s5k6aafx_reg_holiday.o s5k6aafx_reg_holiday_cob.o
 obj-$(CONFIG_MACH_VIGOR) += s5k3h2yx_reg_vigor.o ov8830_reg_vigor.o mt9d015_reg_vigor.o
 obj-$(CONFIG_MACH_RUBY) += s5k3h2yx_reg_holiday.o mt9d015_reg_vigor.o
+ifneq ($(CONFIG_MSM_CAMERA_V4L2),y)
 obj-$(CONFIG_MACH_RIDER) += s5k3h2yx_reg_holiday.o s5k6aafx_reg_rider.o s5k6aafx_reg_rider_cob.o ov8830_reg_vigor.o
+endif
 obj-$(CONFIG_MACH_VILLEC2) += s5k3h2yx_reg_holiday.o s5k6aafx_reg_villec2.o s5k6aafx_reg_villec2_cob.o ov8830_reg_vigor.o
 obj-$(CONFIG_MACH_RUNNYMEDE) += s5k3h2yx_reg_runnymede.o ov8830_reg_runnymede.o s5k6aafx_reg_runnymede_cob.o
 obj-$(CONFIG_MACH_KINGDOM) += s5k6aafx_reg_kingdom_cob.o s5k6aafx_reg_kingdom.o

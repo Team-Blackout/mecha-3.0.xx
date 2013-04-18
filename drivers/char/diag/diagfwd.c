@@ -33,6 +33,9 @@
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
 #include "diagchar_hdlc.h"
+#if defined(CONFIG_MACH_MECHA)
+#include "../../../arch/arm/mach-msm/7x30-smd/sdio_diag.h"
+#endif
 #ifdef CONFIG_DIAG_SDIO_PIPE
 #include "diagfwd_sdio.h"
 #endif
@@ -43,7 +46,9 @@ int is_wcnss_used;
 int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
+#ifndef CONFIG_MACH_MECHA
 int sdio_diag_initialized;
+#endif
 int smd_diag_initialized;
 #if DIAG_XPST
 static int diag_smd_function_mode;
@@ -173,7 +178,7 @@ void __diag_smd_send_req(void)
 				do_gettimeofday(&t1);
 				diff = (t1.tv_sec-t0.tv_sec)*1000 + (t1.tv_usec-t0.tv_usec)/1000;
 				if (diff > 1000) {
-					pr_err("[diag-dbg] Over time (%ld) %ld.%04ld -> %ld.%04ld empty = %d\n",
+					pr_warn("[diag-dbg] Over time (%ld) %ld.%04ld -> %ld.%04ld empty = %d\n",
 						diff, (long)t0.tv_sec, t0.tv_usec/1000,
 						(long)t1.tv_sec, t1.tv_usec/1000, empty);
 				}
@@ -242,7 +247,12 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 				break;
 		if (i < driver->num_clients) {
 			wake_lock_timeout(&driver->wake_lock, HZ / 2);
+#ifndef CONFIG_ARCH_MSM8960
+			if (proc_num != APPS_DATA)
+				driver->data_ready[i] |= USERMODE_DIAGFWD;
+#else
 			driver->data_ready[i] |= USERMODE_DIAGFWD;
+#endif
 			wake_up_interruptible(&driver->wait_q);
 		} else
 			return -EINVAL;
@@ -1071,7 +1081,10 @@ int diagfwd_connect(void)
 	driver->in_busy_qdsp_1 = 0;
 	driver->in_busy_qdsp_2 = 0;
 	driver->in_busy_wcnss = 0;
-
+#if defined(CONFIG_MACH_MECHA)
+	driver->in_busy_mdm_1 = 0;
+	driver->in_busy_mdm_2 = 0;
+#endif
 	/* Poll SMD channels to check for data*/
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
 	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_work));
@@ -1110,6 +1123,10 @@ int diagfwd_disconnect(void)
 		driver->in_busy_qdsp_2 = 1;
 		driver->in_busy_wcnss = 1;
 	}
+#if defined(CONFIG_MACH_MECHA)
+	driver->in_busy_mdm_1 = 1;
+	driver->in_busy_mdm_2 = 1;
+#endif
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	if (diag_support_mdm9k)
 		if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
@@ -1159,6 +1176,15 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 		driver->in_busy_sdio_2 = 0;
 		APPEND_DEBUG('Q');
 		queue_work(driver->diag_sdio_wq, &(driver->diag_read_sdio_work));
+	}
+#endif
+#if defined(CONFIG_MACH_MECHA)
+	else if (buf == (void *)driver->buf_in_mdm_1) {
+		driver->in_busy_mdm_1 = 0;
+		queue_work(driver->mdm_diag_workqueue, &(driver->diag_read_smd_mdm_work));
+	} else if (buf == (void *)driver->buf_in_mdm_2) {
+		driver->in_busy_mdm_2 = 0;
+		queue_work(driver->mdm_diag_workqueue, &(driver->diag_read_smd_mdm_work));
 	}
 #endif
 	else {
@@ -1455,6 +1481,16 @@ void diagfwd_init(void)
 	     ((driver->num_clients) * sizeof(struct diag_client_map),
 		   GFP_KERNEL)) == NULL)
 		goto err;
+#if defined(CONFIG_MACH_MECHA)
+	if (driver->buf_in_mdm_1 == NULL)
+		driver->buf_in_mdm_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		if (driver->buf_in_mdm_1 == NULL)
+			goto err;
+	if (driver->buf_in_mdm_2 == NULL)
+		driver->buf_in_mdm_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		if (driver->buf_in_mdm_2 == NULL)
+			goto err;
+#endif
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	if (driver->mdmclient_map == NULL &&
 	    (driver->mdmclient_map = kzalloc
@@ -1512,6 +1548,18 @@ void diagfwd_init(void)
 		if (driver->write_ptr_wcnss == NULL)
 			goto err;
 	}
+#if defined(CONFIG_MACH_MECHA)
+	if (driver->write_ptr_mdm_1 == NULL)
+			driver->write_ptr_mdm_1 = kzalloc(
+				sizeof(struct diag_request), GFP_KERNEL);
+			if (driver->write_ptr_mdm_1 == NULL)
+					goto err;
+	if (driver->write_ptr_mdm_2 == NULL)
+			driver->write_ptr_mdm_2 = kzalloc(
+				sizeof(struct diag_request), GFP_KERNEL);
+			if (driver->write_ptr_mdm_2 == NULL)
+					goto err;
+#endif
 	if (driver->usb_read_ptr == NULL) {
 		driver->usb_read_ptr = kzalloc(
 			sizeof(struct diag_request), GFP_KERNEL);
@@ -1544,6 +1592,10 @@ void diagfwd_init(void)
 	platform_driver_register(&msm_smd_ch1_driver);
 	platform_driver_register(&diag_smd_lite_driver);
 
+#if defined(CONFIG_MACH_MECHA)
+	if (sdio_diag_init_enable)
+		sdio_diag_init();
+#endif
 	return;
 err:
 		pr_err("diag: Could not initialize diag buffers");
@@ -1560,6 +1612,10 @@ err:
 		kfree(driver->client_map);
 		kfree(driver->buf_tbl);
 		kfree(driver->data_ready);
+#if defined(CONFIG_MACH_MECHA)
+		kfree(driver->mdmclient_map);
+		kfree(driver->mdmdata_ready);
+#endif
 		kfree(driver->table);
 		kfree(driver->pkt_buf);
 		kfree(driver->write_ptr_1);
@@ -1567,6 +1623,10 @@ err:
 		kfree(driver->write_ptr_qdsp_1);
 		kfree(driver->write_ptr_qdsp_2);
 		kfree(driver->write_ptr_wcnss);
+#if defined(CONFIG_MACH_MECHA)
+		kfree(driver->write_ptr_mdm_1);
+		kfree(driver->write_ptr_mdm_2);
+#endif
 		kfree(driver->usb_read_ptr);
 		kfree(driver->apps_rsp_buf);
 		kfree(driver->user_space_data);
@@ -1595,6 +1655,10 @@ void diagfwd_exit(void)
 	kfree(driver->buf_in_qdsp_1);
 	kfree(driver->buf_in_qdsp_2);
 	kfree(driver->buf_in_wcnss);
+#if defined(CONFIG_MACH_MECHA)
+	kfree(driver->buf_in_mdm_1);
+	kfree(driver->buf_in_mdm_2);
+#endif
 	kfree(driver->usb_buf_out);
 	kfree(driver->hdlc_buf);
 	kfree(driver->msg_masks);
@@ -1603,6 +1667,10 @@ void diagfwd_exit(void)
 	kfree(driver->client_map);
 	kfree(driver->buf_tbl);
 	kfree(driver->data_ready);
+#if defined(CONFIG_MACH_MECHA)
+	kfree(driver->mdmclient_map);
+	kfree(driver->mdmdata_ready);
+#endif
 	kfree(driver->table);
 	kfree(driver->pkt_buf);
 	kfree(driver->write_ptr_1);
@@ -1610,6 +1678,10 @@ void diagfwd_exit(void)
 	kfree(driver->write_ptr_qdsp_1);
 	kfree(driver->write_ptr_qdsp_2);
 	kfree(driver->write_ptr_wcnss);
+#if defined(CONFIG_MACH_MECHA)
+	kfree(driver->write_ptr_mdm_1);
+	kfree(driver->write_ptr_mdm_2);
+#endif
 	kfree(driver->usb_read_ptr);
 	kfree(driver->apps_rsp_buf);
 	kfree(driver->user_space_data);

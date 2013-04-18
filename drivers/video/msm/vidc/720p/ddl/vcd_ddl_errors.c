@@ -15,6 +15,14 @@
 #include "vcd_ddl_utils.h"
 #include "vcd_ddl.h"
 
+#if DEBUG
+#define DBG(x...) printk(KERN_DEBUG x)
+#else
+#define DBG(x...)
+#endif
+
+#define ERR(x...) printk(KERN_ERR x)
+
 #define INVALID_CHANNEL_NUMBER  1
 #define INVALID_COMMAND_ID 2
 #define CHANNEL_ALREADY_IN_USE 3
@@ -182,7 +190,7 @@ static u32 ddl_handle_hw_fatal_errors(struct ddl_context
 	case VSP_NOT_READY:
 	case BUFFER_FULL_STATE:
 	case NULL_DB_POINTER:
-		DDL_MSG_ERROR("HW FATAL ERROR");
+		ERR("HW FATAL ERROR");
 		ddl_hw_fatal_cb(ddl_context);
 		status = true;
 		break;
@@ -245,7 +253,7 @@ static u32 ddl_handle_client_fatal_errors(struct ddl_context
 	}
 
 	if (!status)
-		DDL_MSG_ERROR("UNKNOWN-OP-FAILED");
+		ERR("UNKNOWN-OP-FAILED");
 
 	ddl_client_fatal_cb(ddl_context);
 
@@ -307,7 +315,7 @@ static u32 ddl_handle_core_recoverable_errors(struct ddl_context \
 
 			if (pending_display >=
 				ddl->codec_data.decoder.min_dpb_num) {
-				DDL_MSG_LOW("FWISSUE-REQBUF!!");
+				DBG("FWISSUE-REQBUF!!");
 				/* callback to client for client fatal error */
 				ddl_client_fatal_cb(ddl_context);
 				return true ;
@@ -353,7 +361,7 @@ static u32 ddl_handle_core_recoverable_errors(struct ddl_context \
 	case ACTIVE_PPS_NOT_PRESENT:
 		{
 			if (ddl->codec_data.decoder.idr_only_decoding) {
-				DDL_MSG_LOW("Consider warnings as errors in idr mode");
+				DBG("Consider warnings as errors in idr mode");
 				ddl_client_fatal_cb(ddl_context);
 				return true;
 			}
@@ -409,7 +417,7 @@ static u32 ddl_handle_core_recoverable_errors(struct ddl_context \
 			(void *)ddl, ddl_context->client_data);
 
 		if (eos) {
-			DDL_MSG_LOW("ENC-EOS_DONE");
+			DBG("ENC-EOS_DONE");
 			/* send client EOS DONE callback */
 			ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE,
 				VCD_S_SUCCESS, NULL, 0, (void *)ddl,
@@ -464,7 +472,7 @@ static u32 ddl_handle_core_warnings(u32 err_status)
 	case METADATA_NO_SPACE_DATA_NONE:
 		{
 			status = true;
-			DDL_MSG_LOW("CMD-WARNING-IGNORED!!");
+			DBG("CMD-WARNING-IGNORED!!");
 			break;
 		}
 	}
@@ -481,7 +489,7 @@ u32 ddl_handle_core_errors(struct ddl_context *ddl_context)
 		return false;
 
 	if (ddl_context->cmd_state == DDL_CMD_INVALID) {
-		DDL_MSG_LOW("SPURIOUS_INTERRUPT_ERROR");
+		DBG("SPURIOUS_INTERRUPT_ERROR");
 		return true;
 	}
 
@@ -492,24 +500,15 @@ u32 ddl_handle_core_errors(struct ddl_context *ddl_context)
 		disp_status = ddl_handle_core_warnings(
 			ddl_context->disp_pic_err_status);
 		if (!status && !disp_status)
-			DDL_MSG_LOW("ddl_warning:Unknown");
+			DBG("ddl_warning:Unknown");
 
 		return false;
 	}
 
-	DDL_MSG_ERROR("%s(): OPFAILED!!", __func__);
-	switch(ddl_context->cmd_err_status) {
-	case NON_FRAME_DATA_RECEIVED:
-		DDL_MSG_ERROR("CMD_ERROR_STATUS = %u, DISP_ERR_STATUS = %u",
-			ddl_context->cmd_err_status,
-			ddl_context->disp_pic_err_status);
-		break;
-	default:
-		DDL_MSG_ERROR("CMD_ERROR_STATUS = %u, DISP_ERR_STATUS = %u",
-			ddl_context->cmd_err_status,
-			ddl_context->disp_pic_err_status);
-		break;
-	}
+	ERR("\n %s(): OPFAILED!!", __func__);
+	ERR("\n CMD_ERROR_STATUS = %u, DISP_ERR_STATUS = %u",
+		ddl_context->cmd_err_status,
+		ddl_context->disp_pic_err_status);
 
 	status = ddl_handle_hw_fatal_errors(ddl_context);
 
@@ -527,7 +526,7 @@ void ddl_handle_npf_decoding_error(struct ddl_context *ddl_context)
 	struct ddl_client_context *ddl = ddl_context->current_ddl;
 	struct ddl_decoder_data *decoder = &ddl->codec_data.decoder;
 	if (!ddl->decoding) {
-		DDL_MSG_ERROR("FWISSUE-ENC-NPF!!!");
+		ERR("FWISSUE-ENC-NPF!!!");
 		ddl_client_fatal_cb(ddl_context);
 		return;
 	}
@@ -561,7 +560,7 @@ u32 ddl_handle_seqhdr_fail_error(struct ddl_context *ddl_context)
 		case INVALID_PPS_ID:
 		case RESOLUTION_NOT_SUPPORTED:
 		case PROFILE_UNKOWN:
-			DDL_MSG_ERROR("SEQ-HDR-FAILED!!!");
+			ERR("SEQ-HDR-FAILED!!!");
 			if ((ddl_context->cmd_err_status ==
 				 RESOLUTION_NOT_SUPPORTED) &&
 				(decoder->codec.codec == VCD_CODEC_H264 ||

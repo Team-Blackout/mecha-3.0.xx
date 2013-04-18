@@ -1308,6 +1308,54 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 		} else {
 			brq.cmd.opcode = writecmd;
 			brq.data.flags |= MMC_DATA_WRITE;
+
+#if defined(CONFIG_MMC_DISABLE_WP_RFG_5)
+			if (mmc_card_mmc(card)) {
+				if (card->write_prot_type) {
+					/* 2012 March, SHR ICS reports radio_config cannot be written.   */
+					/* To workaround this issue, we disable write protection         */
+					/* of radio_config on SHR/SHR#K.								 */
+					/* To protect the RF calibration data, we perform manuelly write */
+					/* protection for rfg_0 - rfg_4, rfg_6-rfg_7                     */
+					if ((brq.cmd.arg > 212993 && brq.cmd.arg < 223234) || (brq.cmd.arg > 225282 && brq.cmd.arg < 229376)) {
+						brq.data.bytes_xfered = (brq.data.blocks << 9);
+						spin_lock_irq(&md->lock);
+						ret = __blk_end_request(req, 0, brq.data.bytes_xfered);
+						spin_unlock_irq(&md->lock);
+						mmc_release_host(card->host);
+						return 1;
+					}
+				}
+			}
+#endif
+#if defined(CONFIG_ARCH_MSM7230)
+			if ((brq.cmd.arg > 143361) && (brq.cmd.arg < 163328)) {
+				pr_err("%s: pid %d(tgid %d)(%s)\n", __func__,
+					(unsigned)(current->pid), (unsigned)(current->tgid), current->comm);
+
+				pr_err("ERROR! Attemp to write radio partition start %d size %d\n",
+					brq.cmd.arg, blk_rq_sectors(req));
+				BUG();
+
+				return 0;
+			} else if (card->cid.manfid == 0x70 && card->write_prot_type && board_mfg_mode() == 0) {
+				/* 2012 March, a lot of Kingston vivo were reported FOTA failure
+				   The root cause is Kingston firmware bug,
+				   Kingston firmware will report I/O error when writing to
+				   write protected region and block filesystem mount operation.
+				   Workaround: perform software write protection to mask this
+				   problematic eMMC firmware behavior. */
+				if ((brq.cmd.arg > 200703 && brq.cmd.arg < 1343488) ||
+				    (brq.cmd.arg > 4046847 && brq.cmd.arg < 4358145)) {
+					brq.data.bytes_xfered = (brq.data.blocks << 9);
+					spin_lock_irq(&md->lock);
+					ret = __blk_end_request(req, 0, brq.data.bytes_xfered);
+					spin_unlock_irq(&md->lock);
+					mmc_release_host(card->host);
+					return 1;
+				}
+			}
+#endif
 		}
 
 		if (do_rel_wr)

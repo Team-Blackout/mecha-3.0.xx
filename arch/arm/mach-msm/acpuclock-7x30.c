@@ -236,7 +236,7 @@ static int acpuclk_7x30_set_rate(int cpu, unsigned long rate,
 		if (tgt_s->vdd_mv > strt_s->vdd_mv) {
 			rc = acpuclk_set_acpu_vdd(tgt_s);
 			if (rc < 0) {
-				pr_err("ACPU VDD increase to %d mV failed "
+				pr_err("[K] ACPU VDD increase to %d mV failed "
 					"(%d)\n", tgt_s->vdd_mv, rc);
 				goto out;
 			}
@@ -252,7 +252,7 @@ static int acpuclk_7x30_set_rate(int cpu, unsigned long rate,
 	if (tgt_s->axi_clk_hz > strt_s->axi_clk_hz) {
 		rc = clk_set_rate(drv_state.ebi1_clk, tgt_s->axi_clk_hz);
 		if (rc < 0) {
-			pr_err("Setting AXI min rate failed (%d)\n", rc);
+			pr_err("[K] Setting AXI min rate failed (%d)\n", rc);
 			goto out;
 		}
 	}
@@ -297,7 +297,7 @@ static int acpuclk_7x30_set_rate(int cpu, unsigned long rate,
 	if (tgt_s->axi_clk_hz < strt_s->axi_clk_hz) {
 		res = clk_set_rate(drv_state.ebi1_clk, tgt_s->axi_clk_hz);
 		if (res < 0)
-			pr_warning("Setting AXI min rate failed (%d)\n", res);
+			pr_warning("[K] Setting AXI min rate failed (%d)\n", res);
 	}
 
 	/* Nothing else to do for power collapse. */
@@ -308,7 +308,7 @@ static int acpuclk_7x30_set_rate(int cpu, unsigned long rate,
 	if (tgt_s->vdd_mv < strt_s->vdd_mv) {
 		res = acpuclk_set_acpu_vdd(tgt_s);
 		if (res)
-			pr_warning("ACPU VDD decrease to %d mV failed (%d)\n",
+			pr_warning("[K] ACPU VDD decrease to %d mV failed (%d)\n",
 					tgt_s->vdd_mv, res);
 	}
 
@@ -361,7 +361,7 @@ static void __init acpuclk_hw_init(void)
 				break;
 		}
 		if (s->acpu_clk_khz == 0) {
-			pr_err("Error - ACPU clock reports invalid speed\n");
+			pr_err("[K] Error - ACPU clock reports invalid speed\n");
 			return;
 		}
 		break;
@@ -383,7 +383,7 @@ static void __init acpuclk_hw_init(void)
 		}
 		/* else fall through */
 	default:
-		pr_err("Error - ACPU clock reports invalid source\n");
+		pr_err("[K] Error - ACPU clock reports invalid source\n");
 		return;
 	}
 
@@ -404,7 +404,7 @@ static void __init acpuclk_hw_init(void)
 
 	res = clk_set_rate(drv_state.ebi1_clk, s->axi_clk_hz);
 	if (res < 0)
-		pr_warning("Setting AXI min rate failed!\n");
+		pr_warning("[K] Setting AXI min rate failed!\n");
 
 	pr_info("ACPU running at %d KHz\n", s->acpu_clk_khz);
 

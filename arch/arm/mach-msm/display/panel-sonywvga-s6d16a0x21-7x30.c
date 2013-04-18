@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/panel-sonywvga-s6d16a0x21-7x30.c
  *
  * Copyright (c) 2009 Google Inc.
- * Copyright (c) 2009 HTC.
+ * Copyright (c) 2012 HTC.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -24,15 +24,18 @@
 #include <linux/leds.h>
 #include <asm/io.h>
 #include <asm/mach-types.h>
-#include <mach/msm_fb.h>
 #include <linux/gpio.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_panel.h>
 #include <mach/panel_id.h>
 #include <mach/vreg.h>
 #include <linux/spi/spi.h>
+#include <mach/msm_fb-7x30.h>
 #include <mach/atmega_microp.h>
-#include "devices.h"
+
+#include "../devices.h"
+#include "../board-mecha.h"
+#include "../proc_comm.h"
 
 //#define DEBUG_LCM
 #ifdef DEBUG_LCM
@@ -50,6 +53,8 @@
 
 extern int panel_type;
 unsigned int g_unblank_stage = 0;
+
+int spi_display_send_9bit(struct spi_msg *msg);
 
 #define SONYWVGA_MIN_VAL		10
 #define SONYWVGA_MAX_VAL		250
@@ -177,13 +182,13 @@ static int sonywvga_panel_power(int on)
 
 	if (sonywvga_power) {
 		ret = (*sonywvga_power)(on);
-		if (ret)
+		if (ret != 0)
 			goto power_fail;
 	}
 
 	if (gpio_switch) {
 		ret = (*gpio_switch)(on);
-		if (ret)
+		if (ret != 0)
 			goto power_fail;
 	}
 	return 0;
@@ -191,8 +196,6 @@ static int sonywvga_panel_power(int on)
 power_fail:
 	return ret;
 }
-
-extern int qspi_send_9bit(struct spi_msg *msg);
 
 #define LCM_CMD(_cmd, ...)					\
 {                                                               \
@@ -246,12 +249,13 @@ static int lcm_write_tb(struct spi_msg cmd_table[], unsigned size)
         int i;
 
         for (i = 0; i < size; i++) {
-		qspi_send_9bit(&cmd_table[i]);
+		spi_display_send_9bit(&cmd_table[i]);
         }
         return 0;
 }
 
 static char shrink_pwm = 0x00;
+
 static struct spi_msg gamma_update = {
 		.cmd = 0x51,
 		.len = 1,
@@ -274,6 +278,7 @@ static struct spi_msg init_cmd = {
 };
 
 static char init_data = 0x05;
+
 static struct spi_msg init_cmd2 = {
 		.cmd = 0x3A,
 		.len = 1,
@@ -295,7 +300,7 @@ static void sonywvga_set_gamma_val(int val)
 		microp_i2c_write(0x25, data, 4);
 	} else {
 		shrink_pwm = sonywvga_panel_shrink_pwm(val);
-	        qspi_send_9bit(&gamma_update);
+		spi_display_send_9bit(&gamma_update);
 		if( panel_type == PANEL_ID_SAG_SONY )
 			lcm_write_tb(SAG_SONY_GAMMA_UPDATE_TABLE,  ARRAY_SIZE(SAG_SONY_GAMMA_UPDATE_TABLE));
 		else
@@ -312,7 +317,7 @@ static int sonywvga_panel_unblank(struct msm_lcdc_panel_ops *panel_data)
         mutex_lock(&panel_lock);
 
 	hr_msleep(100);
-	qspi_send_9bit(&unblank_msg);
+	spi_display_send_9bit(&unblank_msg);
 	hr_msleep(20);
 	//init gamma setting
 	if(!is_sony_with_gamma())
@@ -337,9 +342,9 @@ static int sonywvga_panel_blank(struct msm_lcdc_panel_ops *panel_data)
 	mutex_lock(&panel_lock);
 
 	blank_msg.cmd = 0x28;
-	qspi_send_9bit(&blank_msg);
+	spi_display_send_9bit(&blank_msg);
 	blank_msg.cmd = 0x10;
-	qspi_send_9bit(&blank_msg);
+	spi_display_send_9bit(&blank_msg);
 	hr_msleep(40);
 	g_unblank_stage = 0;
 	mutex_unlock(&panel_lock);
@@ -363,14 +368,14 @@ static int sonywvga_panel_init(struct msm_lcdc_panel_ops *ops)
 	mutex_lock(&panel_lock);
 	sonywvga_panel_power(1);
 	hr_msleep(45);
-	qspi_send_9bit(&init_cmd);
+	spi_display_send_9bit(&init_cmd);
 	hr_msleep(5);
 	if (is_sony_RGB666()) {
 		init_data = 0x06;
-		qspi_send_9bit(&init_cmd2);
+		spi_display_send_9bit(&init_cmd2);
 	} else {
 		init_data = 0x05;
-		qspi_send_9bit(&init_cmd2);
+		spi_display_send_9bit(&init_cmd2);
 	}
 	mutex_unlock(&panel_lock);
 	wake_unlock(&panel_idle_lock);
@@ -422,7 +427,7 @@ static struct platform_device sonywvga_lcdc_device = {
 };
 
 static struct msm_mdp_platform_data mdp_pdata = {
-        .color_format = MSM_MDP_OUT_IF_FMT_RGB666,
+	.color_format	= MSM_MDP_OUT_IF_FMT_RGB666,
 };
 
 void sonywvga_brightness_set(struct led_classdev *led_cdev,
@@ -449,7 +454,7 @@ static int sonywvga_backlight_probe(struct platform_device *pdev)
 	int rc;
 
 	rc = led_classdev_register(&pdev->dev, &sonywvga_backlight_led);
-	if (rc)
+	if (rc != 0)
 		LCMDBG("backlight: failure on register led_classdev\n");
 	return 0;
 }
@@ -472,26 +477,30 @@ static int __init sonywvga_init_panel(void)
 
 	printk(KERN_DEBUG "%s\n", __func__);
 
-	if(is_sony_RGB666())
+	if(is_sony_RGB666()){
 		msm_device_mdp.dev.platform_data = &mdp_pdata;
-
+	}
+	
 	ret = platform_device_register(&msm_device_mdp);
-	if (ret)
+	if (ret != 0){
+		printk(KERN_DEBUG "%s platform_device_register() failed\n", __func__);
 		return ret;
-
+	}
 	/* set gpio to proper state in the beginning */
 	if (gpio_switch)
 		(*gpio_switch)(1);
 
 	ret = platform_device_register(&sonywvga_lcdc_device);
-	if (ret)
+	if (ret != 0){
+		printk(KERN_DEBUG "%s platform_device_register() failed\n", __func__);
 		return ret;
+	}
 
 	wake_lock_init(&panel_idle_lock, WAKE_LOCK_SUSPEND,
 			"backlight_present");
 
 	ret = platform_device_register(&sonywvga_backlight);
-	if (ret)
+	if (ret != 0)
 		return ret;
 
 	return 0;

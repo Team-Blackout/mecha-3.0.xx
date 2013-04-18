@@ -40,23 +40,6 @@ do { \
 		printk(KERN_DEBUG x); \
 } while (0)
 
-#ifdef DDL_MSG_LOG
-#define DDL_MSG_LOW(x...)    printk(KERN_INFO "[VID] " x)
-#define DDL_MSG_MED(x...)    printk(KERN_INFO "[VID] " x)
-#define DDL_MSG_HIGH(x...)   printk(KERN_INFO "[VID] " x)
-#else
-#define DDL_MSG_LOW(x...)
-#define DDL_MSG_MED(x...)
-#define DDL_MSG_HIGH(x...)
-#endif
-
-#define DDL_MSG_ERROR(x...)  printk(KERN_INFO "[VID] " x)
-#define DDL_MSG_FATAL(x...)  printk(KERN_INFO "[VID] " x)
-
-void ddl_pmem_alloc(struct ddl_buf_addr *, u32, u32);
-
-void ddl_pmem_free(struct ddl_buf_addr *);
-
 void ddl_set_core_start_time(const char *func_name, u32 index);
 
 void ddl_calc_core_proc_time(const char *func_name, u32 index);

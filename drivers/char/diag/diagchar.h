@@ -162,6 +162,10 @@ struct diagchar_dev {
 	unsigned char *buf_in_qdsp_cntl;
 	unsigned char *buf_in_wcnss;
 	unsigned char *buf_in_wcnss_cntl;
+#if defined(CONFIG_MACH_MECHA)
+	unsigned char *buf_in_mdm_1;
+	unsigned char *buf_in_mdm_2;
+#endif
 	struct mutex diagcharmdm_mutex;
 	wait_queue_head_t mdmwait_q;
 	struct diag_client_map *mdmclient_map;
@@ -180,6 +184,10 @@ struct diagchar_dev {
 	int in_busy_qdsp_1;
 	int in_busy_qdsp_2;
 	int in_busy_wcnss;
+#if defined(CONFIG_MACH_MECHA)
+	int in_busy_mdm_1;
+	int in_busy_mdm_2;
+#endif
 	int read_len_legacy;
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
@@ -192,6 +200,11 @@ struct diagchar_dev {
 #endif
 	struct workqueue_struct *diag_wq;
 	struct wake_lock wake_lock;
+
+#if defined(CONFIG_MACH_MECHA)
+	struct workqueue_struct *mdm_diag_workqueue;
+	struct work_struct diag_read_smd_mdm_work;
+#endif
 	struct work_struct diag_drain_work;
 	struct work_struct diag_read_smd_work;
 	struct work_struct diag_read_smd_cntl_work;

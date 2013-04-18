@@ -284,10 +284,10 @@ int android_switch_function(unsigned func)
 	unsigned val;
 
 	/* framework may try to enable adb before android_usb_init_work is done.*/
-       if (dev->enabled != true) {
-              pr_info("%s: USB driver is not initialize\n", __func__);
-              return 0;
-       }
+	if (dev->enabled != true) {
+		pr_info("%s: USB driver is not initialize\n", __func__);
+		return 0;
+	}
 
 	mutex_lock(&function_bind_sem);
 
@@ -425,8 +425,7 @@ int android_switch_function(unsigned func)
 	usb_add_config(dev->cdev, &android_config_driver, android_bind_config);
 
 	/* reset usb controller/phy for USB stability */
-	if(dev->pdata && dev->pdata->req_reset_during_switch_func)
-		usb_gadget_request_reset(dev->cdev->gadget);
+	usb_gadget_request_reset(dev->cdev->gadget);
 
 	mdelay(100);
 	usb_gadget_connect(dev->cdev->gadget);
@@ -456,6 +455,25 @@ void android_switch_htc_mode(void)
 				(1 << USB_FUNCTION_AUTOBOT));
 }
 
+#ifdef CONFIG_PASCAL_DETECT
+extern struct switch_dev kddi_switch;
+extern atomic_t pascal_enable;
+void android_switch_pascal_mode(void)
+{
+	printk(KERN_INFO "usb: switch to CDC ACM\n");
+	android_switch_function(1 << USB_FUNCTION_ACM);
+	msleep(2000);
+	printk(KERN_INFO "switch_set_state: kddi_switch = 1\n");
+	switch_set_state(&kddi_switch, 1);
+	atomic_set(&pascal_enable, 1);
+}
+
+void android_switch_pascal_mode_fn(struct work_struct *work)
+{
+	printk(KERN_INFO "%s\n", __func__);
+	android_switch_pascal_mode();
+}
+#endif
 
 void init_mfg_serialno(void)
 {
@@ -635,8 +653,8 @@ static ssize_t store_usb_phy_setting(struct device *dev,
 #if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 void msm_otg_set_id_state(int id);
 static ssize_t store_usb_host_mode(struct device *dev,
-                struct device_attribute *attr,
-                const char *buf, size_t count)
+		struct device_attribute *attr,
+		const char *buf, size_t count)
 {
 	unsigned u, enable;
 	ssize_t  ret;
@@ -644,7 +662,7 @@ static ssize_t store_usb_host_mode(struct device *dev,
 	ret = strict_strtoul(buf, 10, (unsigned long *)&u);
 	if (ret < 0) {
 		USB_ERR("%s: %d\n", __func__, ret);
-		return 0;
+		return count;
 	}
 
 	enable = u ? 1 : 0;
@@ -656,6 +674,41 @@ static ssize_t store_usb_host_mode(struct device *dev,
 }
 static DEVICE_ATTR(host_mode, 0220,
 		NULL, store_usb_host_mode);
+#endif
+#ifdef CONFIG_USB_HUB
+static int mdm_port_status;
+static ssize_t store_mdm_port_enabled(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned enabled;
+	int ret;
+
+	ret = strict_strtoul(buf, 10, (unsigned long *)&enabled);
+	if (ret < 0) {
+		USB_ERR("%s: %d\n", __func__, ret);
+		return count;
+	}
+
+	USB_INFO("%s: %d\n", __func__, enabled);
+	if (enabled && !connect2pc) {
+		USB_WARNING("%s: no connect2pc\n", __func__);
+		return -EPERM;
+	}
+
+	smsc251x_mdm_port_sw(enabled);
+	mdm_port_status = enabled;
+	return count;
+}
+
+static ssize_t show_mdm_port_enabled(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	unsigned length = sprintf(buf, "%d", mdm_port_status);
+	USB_INFO("%s: %d\n", __func__, mdm_port_status);
+	return length;
+}
+static DEVICE_ATTR(mdm_port_enabled, 0664,
+		show_mdm_port_enabled, store_mdm_port_enabled);
 #endif
 
 static DEVICE_ATTR(usb_cable_connect, 0444, show_usb_cable_connect, NULL);
@@ -680,6 +733,9 @@ static struct attribute *android_htc_usb_attributes[] = {
 	&dev_attr_usb_phy_setting.attr,
 #if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 	&dev_attr_host_mode.attr,
+#endif
+#ifdef CONFIG_USB_HUB
+	&dev_attr_mdm_port_enabled.attr,
 #endif
 	NULL
 };

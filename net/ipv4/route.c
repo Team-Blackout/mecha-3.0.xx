@@ -416,7 +416,13 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
 			   "HHUptod\tSpecDst");
 	else {
 		struct rtable *r = v;
-		int len;
+		struct neighbour *n;
+		int len, HHUptod;
+
+		rcu_read_lock();
+		n = dst_get_neighbour(&r->dst);
+		HHUptod = (n && (n->nud_state & NUD_CONNECTED)) ? 1 : 0;
+		rcu_read_unlock();
 
 		seq_printf(seq, "%s\t%08X\t%08X\t%8X\t%d\t%u\t%d\t"
 			      "%08X\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X%n",
@@ -431,8 +437,7 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
 			      dst_metric(&r->dst, RTAX_RTTVAR)),
 			r->rt_key_tos,
 			r->dst.hh ? atomic_read(&r->dst.hh->hh_refcnt) : -1,
-			r->dst.hh ? (r->dst.hh->hh_output ==
-				       dev_queue_xmit) : 0,
+			HHUptod,
 			r->rt_spec_dst, &len);
 
 		seq_printf(seq, "%*s\n", 127 - len, "");
@@ -1688,23 +1693,25 @@ static int check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
 {
 	struct rtable *rt = (struct rtable *) dst;
 	__be32 orig_gw = rt->rt_gateway;
+	struct neighbour *n, *old_n;
 
 	dst_confirm(&rt->dst);
 
-	neigh_release(rt->dst.neighbour);
-	rt->dst.neighbour = NULL;
-
 	rt->rt_gateway = peer->redirect_learned.a4;
-	if (arp_bind_neighbour(&rt->dst) ||
-	    !(rt->dst.neighbour->nud_state & NUD_VALID)) {
-		if (rt->dst.neighbour)
-			neigh_event_send(rt->dst.neighbour, NULL);
+	n = __arp_bind_neighbour(&rt->dst, rt->rt_gateway);
+	if (IS_ERR(n))
+		return PTR_ERR(n);
+	old_n = xchg(&rt->dst._neighbour, n);
+	if (old_n)
+		neigh_release(old_n);
+	if (!n || !(n->nud_state & NUD_VALID)) {
+		if (n)
+			neigh_event_send(n, NULL);
 		rt->rt_gateway = orig_gw;
 		return -EAGAIN;
 	} else {
 		rt->rt_flags |= RTCF_REDIRECTED;
-		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE,
-					rt->dst.neighbour);
+		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, n);
 	}
 	return 0;
 }
@@ -2715,6 +2722,10 @@ static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
 		fl4->saddr = FIB_RES_PREFSRC(net, res);
 
 	dev_out = FIB_RES_DEV(res);
+	if (dev_out == NULL) {
+		printk(KERN_ERR "[NET] dev_null is NULL in %s!\n", __func__);
+		goto out;
+	}
 	fl4->flowi4_oif = dev_out->ifindex;
 
 
@@ -2736,8 +2747,19 @@ out:
 
 struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *flp4)
 {
-	struct rtable *rth;
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+	struct rtable *rth = NULL;
+#else
+    struct rtable *rth;
+#endif
 	unsigned int hash;
+
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+    if (IS_ERR_OR_NULL(net)) {
+        printk(KERN_ERR "[NET] net is NULL in %s\n", __func__);
+        return rth;
+    }
+#endif
 
 	if (!rt_caching(net))
 		goto slow_output;

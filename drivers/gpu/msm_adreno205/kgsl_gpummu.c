@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -354,7 +354,12 @@ err_ptpool_remove:
 int kgsl_gpummu_pt_equal(struct kgsl_pagetable *pt,
 					unsigned int pt_base)
 {
-	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
+	struct kgsl_gpummu_pt *gpummu_pt;
+	if (!pt) {
+		KGSL_CORE_ERR("pt is NULL\n");
+		return 0;
+	}
+	gpummu_pt = pt->priv;
 	return pt && pt_base && (gpummu_pt->base.gpuaddr == pt_base);
 }
 
@@ -382,26 +387,27 @@ static inline void
 kgsl_pt_map_set(struct kgsl_gpummu_pt *pt, uint32_t pte, uint32_t val)
 {
 	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-
-	writel_relaxed(val, &baseptr[pte]);
+	BUG_ON(pte*sizeof(uint32_t) >= pt->base.size);
+	baseptr[pte] = val;
 }
 
 static inline uint32_t
 kgsl_pt_map_get(struct kgsl_gpummu_pt *pt, uint32_t pte)
 {
 	uint32_t *baseptr = (uint32_t *)pt->base.hostptr;
-	return readl_relaxed(&baseptr[pte]) & GSL_PT_PAGE_ADDR_MASK;
+	BUG_ON(pte*sizeof(uint32_t) >= pt->base.size);
+	return baseptr[pte] & GSL_PT_PAGE_ADDR_MASK;
 }
 
 static unsigned int kgsl_gpummu_pt_get_flags(struct kgsl_pagetable *pt,
 				enum kgsl_deviceid id)
 {
 	unsigned int result = 0;
-	struct kgsl_gpummu_pt *gpummu_pt = (struct kgsl_gpummu_pt *)
-						pt->priv;
+	struct kgsl_gpummu_pt *gpummu_pt;
 
 	if (pt == NULL)
 		return 0;
+	gpummu_pt = pt->priv;
 
 	spin_lock(&pt->lock);
 	if (gpummu_pt->tlb_flags && (1<<id)) {

@@ -187,8 +187,13 @@ typedef struct dhd_pub {
 			while (dhd_mmc_suspend && retry++ != b) { \
 				wait_event_timeout(a, FALSE, HZ/100); \
 			} \
+			if(dhd_mmc_suspend)\
+				printk("dhd_mmc_suspend is true");\
+			if(retry == b)\
+				printk("DHD_PM_RESUME_WAIT: timeout");\
 		} 	while (0)
-	#define DHD_PM_RESUME_WAIT(a) 			_DHD_PM_RESUME_WAIT(a, 30)
+	//#define DHD_PM_RESUME_WAIT(a) 			_DHD_PM_RESUME_WAIT(a, 30)
+        #define DHD_PM_RESUME_WAIT(a)                     _DHD_PM_RESUME_WAIT(a, 500)
 	#define DHD_PM_RESUME_WAIT_FOREVER(a) 	_DHD_PM_RESUME_WAIT(a, ~0)
 	#define DHD_PM_RESUME_RETURN_ERROR(a)	do { if (dhd_mmc_suspend) return a; } while (0)
 	#define DHD_PM_RESUME_RETURN		do { if (dhd_mmc_suspend) return; } while (0)
@@ -547,7 +552,8 @@ enum pkt_filter_id {
 	ALLOW_IPV4_MULTICAST,
 	ALLOW_IPV6_MULTICAST,
 // packet filter for Rogers nat keep alive +++
-	DENY_NAT_KEEP_ALIVE = 201
+	DENY_NAT_KEEP_ALIVE = 201,
+	DENY_NAT_KEEP_ALIVE_ORAG = 202
 // packet filter for Rogers nat keep alive ---
 };
 int dhd_set_pktfilter(dhd_pub_t *dhd, int add, int id, int offset, char *mask, char *pattern);
@@ -574,4 +580,5 @@ extern int dhd_get_txrx_stats(struct net_device *net, unsigned long *rx_packets,
 // packet filter for Rogers nat keep alive +++
 extern void dhd_suspend_pktfilter(dhd_pub_t * dhd, int suspend);
 // packet filter for Rogers nat keep alive ---
+extern int wifi_restart_fail;
 #endif /* _dhd_h_ */

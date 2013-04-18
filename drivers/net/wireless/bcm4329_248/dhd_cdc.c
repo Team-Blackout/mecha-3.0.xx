@@ -1336,8 +1336,10 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	dhd_set_pktfilter(dhd, 1, ALLOW_IPV6_MULTICAST, 0, "0xffff", "0x3333");
 #endif
 // packet filter for Rogers nat keep alive +++
-	if (filter_reverse)
-		dhd_set_pktfilter(dhd, 1, DENY_NAT_KEEP_ALIVE, 26, "0xFFFF0000000000000000FFFFFFFF", "0x4AC6000000000000000011940009");
+	if (filter_reverse) {
+		dhd_set_pktfilter(dhd, 1, DENY_NAT_KEEP_ALIVE, 26, "0xFFFF0000000000000000FFFFFFFF", "0xC123880000000000000011940009");
+		dhd_set_pktfilter(dhd, 1, DENY_NAT_KEEP_ALIVE_ORAG, 26, "0xFFFF0000000000000000FFFFFFFF", "0x4AC6000000000000000011940009");
+	}
 // packet filter for Rogers nat keep alive ---
 #else
 	dhd->pktfilter_count = 1;

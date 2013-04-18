@@ -46,7 +46,6 @@
 
 #ifdef CONFIG_RAWCHIP
 #include "rawchip/rawchip.h"
-#include "rawchip/Yushan_API.h"
 #endif
 
 DEFINE_MUTEX(pp_prev_lock);
@@ -196,14 +195,14 @@ static void msm_enqueue_vpe(struct msm_device_queue *queue,
 	struct msm_queue_cmd *qcmd;				\
 	spin_lock_irqsave(&__q->lock, flags);			\
 	pr_info("[CAM] %s: draining queue %s\n", __func__, __q->name);	\
+	pr_info("[CAM]%s,q->len = %d\n", __func__, __q->len);	\
 	while (!list_empty(&__q->list)) {			\
 		__q->len--;					\
-		pr_info("[CAM]%s,q->len = %d\n", __func__, __q->len);	\
 		qcmd = list_first_entry(&__q->list,		\
 			struct msm_queue_cmd, member);		\
 		if (qcmd) {                         \
 			if ((&qcmd->member) && (&qcmd->member.next) && (&qcmd->member.prev)) \
-				pr_info("[CAM] %s, qcmd->member.next= 0x%p\n", __func__, qcmd->member.next);	\
+				CDBG("[CAM] %s, qcmd->member.next= 0x%p\n", __func__, qcmd->member.next);	\
 				list_del_init(&qcmd->member);			\
 		free_qcmd(qcmd);				\
 		}                                   \

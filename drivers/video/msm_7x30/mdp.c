@@ -1303,11 +1303,13 @@ int mdp_probe(struct platform_device *pdev)
 		goto error_get_mdp_clk;
 	}
 
-#ifdef CONFIG_FB_MSM_LCDC
-	mdp->ebi1_clk = clk_get(NULL, "ebi1_lcdc_clk");
-#else
-	mdp->ebi1_clk = clk_get(NULL, "ebi1_mddi_clk");
-#endif
+	if (mdp_readl(mdp, 0x0018) & 0x20) {
+		mdp->ebi1_clk = clk_get(NULL, "ebi1_lcdc_clk");
+		PR_DISP_INFO("mdp: lcdc interface");
+	} else {
+		mdp->ebi1_clk = clk_get(NULL, "ebi1_mddi_clk");
+		PR_DISP_INFO("mdp: mddi interface");
+	}
 
 	if (IS_ERR(mdp->ebi1_clk)) {
 			PR_DISP_ERR("mdp: failed to get ebi1 clk\n");

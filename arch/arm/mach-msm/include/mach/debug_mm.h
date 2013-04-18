@@ -29,7 +29,7 @@
 #define MM_INFO(fmt, args...) pr_info("[%s:%s] " fmt,\
 	       __MM_FILE__, __func__, ##args)
 
-#if 1
+#if 0
 #define MM_AUD_INFO(fmt, args...)    do { } while (0)
 
 #else

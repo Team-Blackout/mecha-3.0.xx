@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,14 +33,15 @@
 #include <media/msm/vidc_init.h>
 #include "venc_internal.h"
 
-#if DEBUG
-#define DBG(x...) printk(KERN_DEBUG x)
-#else
-#define DBG(x...)
-#endif
+/*HTC_START*/
+extern u32 vidc_msg_debug;
+#define DBG(x...)				\
+	if (vidc_msg_debug) {			\
+		printk(KERN_DEBUG "[VID] " x);	\
+	}
+/*HTC_END*/
 
 #define ERR(x...) printk(KERN_ERR x)
-
 static unsigned int vidc_mmu_subsystem[] = {
 	MSM_SUBSYSTEM_VIDEO};
 
@@ -1656,6 +1657,9 @@ u32 vid_enc_encode_frame(struct video_client_ctx *client_ctx,
 	int pmem_fd;
 	struct file *file;
 	s32 buffer_index = -1;
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	u32 ion_flag = 0;
+#endif
 
 	u32 vcd_status = VCD_ERR_FAIL;
 
@@ -1686,6 +1690,20 @@ u32 vid_enc_encode_frame(struct video_client_ctx *client_ctx,
 
 		/* Rely on VCD using the same flags as OMX */
 		vcd_input_buffer.flags = input_frame_info->flags;
+
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_INPUT,
+				pmem_fd, kernel_vaddr, buffer_index);
+
+		if (vcd_input_buffer.data_len > 0) {
+			if (ion_flag == CACHED) {
+				clean_caches(
+				(unsigned long) vcd_input_buffer.virtual,
+				(unsigned long) vcd_input_buffer.data_len,
+				(phy_addr + input_frame_info->offset));
+			}
+		}
+#endif
 
 		vcd_status = vcd_encode_frame(client_ctx->vcd_handle,
 		&vcd_input_buffer);
@@ -1793,7 +1811,7 @@ u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
 	} else {
 		client_ctx->recon_buffer_ion_handle[i] = ion_import_fd(
 				client_ctx->user_ion_client, control->pmem_fd);
-		if (!client_ctx->recon_buffer_ion_handle[i]) {
+		if (IS_ERR_OR_NULL(client_ctx->recon_buffer_ion_handle[i])) {
 			ERR("%s(): get_ION_handle failed\n", __func__);
 			goto ion_error;
 		}
@@ -1876,7 +1894,7 @@ u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx,
 	}
 	len = sizeof(client_ctx->recon_buffer)/
 		sizeof(struct vcd_property_enc_recon_buffer);
-	pr_info(" %s() address  %p", __func__,
+	pr_err(" %s() address  %p", __func__,
 	venc_recon->pbuffer);
 	for (i = 0; i < len; i++) {
 		if (client_ctx->recon_buffer[i].user_virtual_addr

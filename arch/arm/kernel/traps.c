@@ -238,7 +238,7 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 	static int die_counter;
 	int ret;
 
-	printk(KERN_EMERG "Internal error: %s: %x [#%d]" S_PREEMPT S_SMP "\n",
+	printk(KERN_EMERG "[K] Internal error: %s: %x [#%d]" S_PREEMPT S_SMP "\n",
 	       str, err, ++die_counter);
 
 	/* trap and error numbers are mostly meaningless on ARM */
@@ -287,13 +287,6 @@ void die(const char *str, struct pt_regs *regs, int err)
 	add_taint(TAINT_DIE);
 	raw_spin_unlock_irq(&die_lock);
 	oops_exit();
-
-#ifdef CONFIG_WIMAX
-	if (find_wimax_modules()) {
-	    printk(KERN_ALERT "[WIMAX] ignore this exception in %s\n", __func__);
-        return;
-    }
-#endif
 
 	if (in_interrupt())
 		panic("Fatal exception in interrupt");

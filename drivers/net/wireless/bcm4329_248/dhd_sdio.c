@@ -729,6 +729,11 @@ dhdsdio_clkctl(dhd_bus_t *bus, uint target, bool pendok)
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
+	if (wifi_restart_fail) {
+		DHD_ERROR(("%s: wifi restart fail, skip it.\n", __func__));
+		return BCME_SDIO_ERROR;
+	}
+
 	/* Early exit if we're already there */
 	if (bus->clkstate == target) {
 		if (target == CLK_AVAIL) {

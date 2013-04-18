@@ -14,7 +14,14 @@
 #include <media/msm/vidc_type.h>
 #include "vcd_ddl_utils.h"
 
+#if DEBUG
+#define DBG(x...) printk(KERN_DEBUG x)
+#else
+#define DBG(x...)
+#endif
+
 #define DBG_TIME(x...) printk(KERN_DEBUG x)
+#define ERR(x...) printk(KERN_ERR x)
 
 struct time_data {
 	unsigned int ddl_t1;
@@ -47,7 +54,7 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 		kmalloc((sz + guard_bytes), GFP_KERNEL);
 
 	if (!buff_addr->virtual_base_addr) {
-		DDL_MSG_ERROR("\n ERROR %s:%u kamlloc fails to allocate"
+		ERR("\n ERROR %s:%u kamlloc fails to allocate"
 			" sz + guard_bytes = %u\n", __func__, __LINE__,
 			(sz + guard_bytes));
 		return;
@@ -86,7 +93,7 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 	struct msm_mapped_buffer *mapped_buffer = NULL;
 
 	if (!buff_addr) {
-		DDL_MSG_ERROR("\n%s() Invalid Parameters", __func__);
+		ERR("\n%s() Invalid Parameters", __func__);
 		return;
 	}
 
@@ -162,7 +169,7 @@ bailout:
 void ddl_pmem_free(struct ddl_buf_addr *buff_addr)
 {
 	if (!buff_addr) {
-		DDL_MSG_ERROR("\n %s() invalid arguments %p", __func__, buff_addr);
+		ERR("\n %s() invalid arguments %p", __func__, buff_addr);
 		return;
 	}
 	DBG_PMEM("\n%s() IN: phy_addr(%p) ker_addr(%p) size(%u)", __func__,
@@ -193,7 +200,7 @@ void ddl_set_core_start_time(const char *func_name, u32 index)
 	act_time = (ddl_tv.tv_sec * 1000) + (ddl_tv.tv_usec / 1000);
 	if (!time_data->ddl_t1) {
 		time_data->ddl_t1 = act_time;
-		DDL_MSG_LOW("\n%s(): Start Time (%u)", func_name, act_time);
+		DBG("\n%s(): Start Time (%u)", func_name, act_time);
 	} else {
 		DBG_TIME("\n%s(): Timer already started! St(%u) Act(%u)",
 			func_name, time_data->ddl_t1, act_time);

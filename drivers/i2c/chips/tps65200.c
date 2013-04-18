@@ -60,6 +60,10 @@ static struct delayed_work kick_dog;
 static struct alarm tps65200_check_alarm;
 static struct work_struct check_alarm_work;
 
+#ifdef CONFIG_MACH_VILLEC2
+static int tps_last_charge;
+static int tps_last_temp_vreg;
+#endif
 static int chg_stat_int;
 static unsigned int chg_stat_enabled;
 static spinlock_t chg_stat_lock;
@@ -359,7 +363,7 @@ static void set_vdpm(struct work_struct *work)
 		tps_set_charger_ctrl(VDPM_ORIGIN_V);
 }
 
-#ifdef CONFIG_BATTERY_DS2746
+#if (defined(CONFIG_TPS65200) && (defined(CONFIG_MACH_PRIMODS) || defined(CONFIG_MACH_PROTOU)))
 int tps65200_mask_interrupt_register(int status)
 {
 	if (status == CHARGER_USB) {	// Vbus in
@@ -374,6 +378,33 @@ int tps65200_mask_interrupt_register(int status)
 EXPORT_SYMBOL(tps65200_mask_interrupt_register);
 #endif
 
+int tps_set_hv_battery(int hv)
+{
+#ifdef CONFIG_MACH_VILLEC2
+	if(htc_is_dq_pass != hv)
+	{
+		pr_tps_info("%s reset dq to %d\n", __func__, hv);
+		htc_is_dq_pass =  hv;
+		if(hv)
+			pr_tps_info("HV battery is detected. From the id3 faking of Villec2\n");
+		else
+			pr_tps_info("normal battery is detected. From the id3 faking of Villec2\n");
+
+		/* reset charger parameters */
+		if(tps_last_charge)
+			tps_set_charger_ctrl(tps_last_charge);
+
+		if(tps_last_temp_vreg)
+			tps_set_charger_ctrl(tps_last_temp_vreg);
+
+	}
+	return 0;
+#else
+	return -1;
+#endif
+}
+EXPORT_SYMBOL(tps_set_hv_battery);
+
 int tps_set_charger_ctrl(u32 ctl)
 {
 	int result = 0;
@@ -387,6 +418,14 @@ int tps_set_charger_ctrl(u32 ctl)
 
 	if (tps65200_initial < 0)
 		return 0;
+
+#ifdef CONFIG_MACH_VILLEC2
+	if(ctl < POWER_SUPPLY_ENABLE_INTERNAL)
+		tps_last_charge = ctl;
+
+	if((ctl == NORMALTEMP_VREG) || (ctl == OVERTEMP_VREG))
+		tps_last_temp_vreg = ctl;
+#endif
 
 	switch (ctl) {
 	case POWER_SUPPLY_DISABLE_CHARGE:
@@ -760,7 +799,41 @@ static void check_alarm_work_func(struct work_struct *work)
 	tps65200_dump_register();
 	tps65200_set_check_alarm();
 }
+#if defined(CONFIG_MACH_PRIMOTD)
+static int tps65200_gpio_request_irq(unsigned int gpio, unsigned int *irq,
+			       irq_handler_t handler, unsigned long flags,
+			       const char *name)
+{
+	int ret = 0;
 
+	ret = gpio_request(gpio, name);
+	if (ret < 0)
+		return ret;
+
+	ret = gpio_direction_input(gpio);
+	if (ret < 0) {
+		gpio_free(gpio);
+		return ret;
+	}
+
+	if (!(*irq)) {
+		ret = gpio_to_irq(gpio);
+		if (ret < 0) {
+			gpio_free(gpio);
+			return ret;
+		}
+		*irq = (unsigned int) ret;
+	}
+
+	ret = request_irq(*irq, handler, flags, name, NULL);
+	if (ret < 0) {
+		gpio_free(gpio);
+		return ret;
+	}
+
+	return 1;
+}
+#endif
 static int tps65200_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -824,7 +897,14 @@ static int tps65200_probe(struct i2c_client *client,
 		chg_int_data->gpio_chg_int = 0;
 		INIT_DELAYED_WORK(&chg_int_data->int_work,
 				tps65200_int_func);
-
+#if defined(CONFIG_MACH_PRIMOTD)
+		rc= tps65200_gpio_request_irq((pdata->gpio_chg_int-128),&chg_int_data->gpio_chg_int,
+					chg_int_handler,IRQF_TRIGGER_FALLING,"chg_int");
+		if (rc < 0)
+			pr_tps_err("request chg_int irq failed!\n");
+		else
+			pr_tps_info("init chg_int interrupt.\n");
+#else
 		rc = request_any_context_irq(
 				pdata->gpio_chg_int,
 				chg_int_handler,
@@ -837,6 +917,7 @@ static int tps65200_probe(struct i2c_client *client,
 			chg_int_data->gpio_chg_int =
 				pdata->gpio_chg_int;
 		}
+#endif
 	}
 	INIT_DELAYED_WORK(&set_vdpm_work, set_vdpm);
 

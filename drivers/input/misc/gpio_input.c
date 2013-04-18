@@ -368,8 +368,8 @@ static int gpio_event_input_request_irqs(struct gpio_input_state *ds)
 		err = request_any_context_irq(irq, gpio_event_input_irq_handler,
 				  req_flags, "gpio_keys", &ds->key_state[i]);
 		if (err < 0) {
-			KEY_LOGE("gpio_event_input_request_irqs: request_irq "
-				"failed for input %d, irq %d, err %d\n",
+			KEY_LOGE("KEY_ERR: %s: request_irq "
+				"failed for input %d, irq %d, err %d\n", __func__,
 				ds->info->keymap[i].gpio, irq, err);
 			goto err_request_irq_failed;
 		}
@@ -427,8 +427,8 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 					di->keymap_size, GFP_KERNEL);
 		if (ds == NULL) {
 			ret = -ENOMEM;
-			KEY_LOGE("gpio_event_input_func: "
-				"Failed to allocate private data\n");
+			KEY_LOGE("KEY_ERR: %s: "
+				"Failed to allocate private data\n", __func__);
 			goto err_ds_alloc_failed;
 		}
 		ds->debounce_count = di->keymap_size;
@@ -447,9 +447,9 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 		for (i = 0; i < di->keymap_size; i++) {
 			int dev = di->keymap[i].dev;
 			if (dev >= input_devs->count) {
-				KEY_LOGE("gpio_event_input_func: bad device "
+				KEY_LOGE("KEY_ERR: %s: bad device "
 					"index %d >= %d for key code %d\n",
-					dev, input_devs->count,
+					__func__, dev, input_devs->count,
 					di->keymap[i].code);
 				ret = -EINVAL;
 				goto err_bad_keymap;
@@ -463,15 +463,15 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 		for (i = 0; i < di->keymap_size; i++) {
 			ret = gpio_request(di->keymap[i].gpio, "gpio_kp_in");
 			if (ret) {
-				KEY_LOGE("gpio_event_input_func: gpio_request "
-					"failed for %d\n", di->keymap[i].gpio);
+				KEY_LOGE("KEY_ERR: %s: gpio_request "
+					"failed for %d\n", __func__, di->keymap[i].gpio);
 				goto err_gpio_request_failed;
 			}
 			ret = gpio_direction_input(di->keymap[i].gpio);
 			if (ret) {
-				KEY_LOGE("gpio_event_input_func: "
+				KEY_LOGE("KEY_ERR: %s: "
 					"gpio_direction_input failed for %d\n",
-					di->keymap[i].gpio);
+					__func__, di->keymap[i].gpio);
 				goto err_gpio_configure_failed;
 			}
 		}

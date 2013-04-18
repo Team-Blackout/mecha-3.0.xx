@@ -66,6 +66,17 @@ struct msm_camera_device_platform_data {
 	struct msm_camera_io_ext ioext;
 	struct msm_camera_io_clk ioclk;
 	uint8_t csid_core;
+#ifdef CONFIG_MSM_CAMERA_V4L2
+	uint8_t is_csiphy;
+	uint8_t is_csic;
+	uint8_t is_csid;
+	uint8_t is_ispif;
+	uint8_t is_vpe;
+//HTC_START:FIXME Max_Sun
+	int (*camera_csi_on) (void);
+	int (*camera_csi_off) (void);
+//HTC_END
+#endif
 	struct msm_bus_scale_pdata *cam_bus_scale_table;
 };
 enum msm_camera_csi_data_format {
@@ -151,7 +162,7 @@ struct msm_camera_sensor_flash_data {
 	struct msm_camera_sensor_flash_src *flash_src;
 };
 
-/* HTC_START linear led 20111011 */
+/* Andrew_Cheng linear led 20111205 MB*/
 struct camera_led_info {
 	uint16_t enable;
 	uint16_t low_limit_led_state;
@@ -172,15 +183,16 @@ struct camera_flash_info {
 	struct camera_led_info *led_info;
 	struct camera_led_est *led_est_table;
 };
-/* HTC_END */
+/* Andrew_Cheng linear led 20111205 ME */
 
 struct camera_flash_cfg {
 	int num_flash_levels;
 	int (*camera_flash)(int level);
 	uint16_t low_temp_limit;
 	uint16_t low_cap_limit;
+	uint16_t low_cap_limit_dual;
 	uint8_t postpone_led_mode;
-	struct camera_flash_info *flash_info;	/* HTC linear led 20111011 */
+	struct camera_flash_info *flash_info;	/* Andrew_Cheng linear led 20111205 */
 };
 
 struct msm_camera_sensor_strobe_flash_data {
@@ -207,13 +219,39 @@ struct msm_camera_rawchip_info {
 	int (*rawchip_use_ext_1v2)(void);
 };
 
+#ifdef CONFIG_MSM_CAMERA_V4L2
+struct msm_cam_clk_info {
+	const char *clk_name;
+	long clk_rate;
+};
+#endif
+
 enum msm_camera_type {
 	BACK_CAMERA_2D,
 	FRONT_CAMERA_2D,
 	BACK_CAMERA_3D,
 	BACK_CAMERA_INT_3D,
 };
+#ifdef CONFIG_MSM_CAMERA_V4L2
+enum camera_vreg_type {
+	REG_LDO,
+	REG_VS,
+};
 
+struct camera_vreg_t {
+	char *reg_name;
+	enum camera_vreg_type type;
+	int min_voltage;
+	int max_voltage;
+	int op_mode;
+};
+
+struct msm_gpio_set_tbl {
+	unsigned gpio;
+	unsigned long flags;
+	uint32_t delay;
+};
+#endif
 struct msm8960_privacy_light_cfg {
 	unsigned mpp;
 };
@@ -235,6 +273,12 @@ struct msm_camera_sensor_platform_info {
 	int privacy_light;
 	enum sensor_flip_mirror_info mirror_flip;
 	void *privacy_light_info;
+#ifdef CONFIG_MSM_CAMERA_V4L2
+	struct camera_vreg_t *cam_vreg;
+	int num_vreg;
+	int32_t (*ext_power_ctrl) (int enable);
+	struct msm_camera_gpio_conf *gpio_conf;
+#endif
 };
 
 struct msm_camera_gpio_conf {
@@ -242,13 +286,29 @@ struct msm_camera_gpio_conf {
 	uint8_t cam_gpiomux_conf_tbl_size;
 	uint16_t *cam_gpio_tbl;
 	uint8_t cam_gpio_tbl_size;
+#ifdef CONFIG_MSM_CAMERA_V4L2
+	struct gpio *cam_gpio_common_tbl;
+	uint8_t cam_gpio_common_tbl_size;
+	struct gpio *cam_gpio_req_tbl;
+	uint8_t cam_gpio_req_tbl_size;
+	struct msm_gpio_set_tbl *cam_gpio_set_tbl;
+	uint8_t cam_gpio_set_tbl_size;
+#endif
 };
+
+#ifdef CONFIG_MSM_CAMERA_V4L2
+struct msm_camera_platform_info {
+	 struct msm_cam_clk_info *clk_info;
+	 int num_clks;
+};
+#endif
 
 struct msm_actuator_info {
 	struct i2c_board_info const *board_info;
 	int bus_id;
 	int vcm_pwd;
 	int vcm_enable;
+	int use_rawchip_af;
 };
 
 enum msm_camera_platform{
@@ -405,6 +465,9 @@ struct msm_panel_common_pdata {
 	struct msm_bus_scale_pdata *mdp_bus_scale_table;
 #endif
 	int mdp_rev;
+	u32 ov0_wb_size;  /* overlay0 writeback size */
+	u32 ov1_wb_size;  /* overlay1 writeback size */
+	u32 mem_hid;
 	int (*writeback_offset)(void);
 	int (*mdp_color_enhance)(void);
 	int (*mdp_gamma)(void);
@@ -414,17 +477,12 @@ struct msm_panel_common_pdata {
 	struct panel_dcr_info *dcr_panel_pinfo;
 	unsigned int auto_bkl_stat;
 	int (*bkl_enable)(int);
+	char cont_splash_enabled;
 #ifdef CONFIG_FB_MSM8960
-	u32 ov0_wb_size;  /* overlay0 writeback size */
-	u32 ov1_wb_size;  /* overlay1 writeback size */
-	u32 mem_hid;
 	int (*acl_enable)(int);
 #else
 	int fpga_3d_config_addr;
 	struct gamma_curvy *abl_gamma_tbl;
-	u32 ov0_wb_size;  /* overlay0 writeback size */
-	u32 ov1_wb_size;  /* overlay1 writeback size */
-	u32 mem_hid;
 #endif
 };
 
@@ -483,6 +541,9 @@ struct mipi_dsi_panel_platform_data {
 	struct mipi_dsi_phy_ctrl *phy_ctrl_settings;
 };
 
+#ifdef CONFIG_ARCH_MSM7X27A
+#define PANEL_NAME_MAX_LEN 50
+#endif
 struct msm_fb_platform_data {
 	int (*detect_client)(const char *name);
 	int mddi_prescan;
@@ -491,7 +552,27 @@ struct msm_fb_platform_data {
 	uint32_t width;
 	uint32_t height;
 	bool     is_3d_panel;
+#ifdef CONFIG_ARCH_MSM7X27A
+	char prim_panel_name[PANEL_NAME_MAX_LEN];
+	char ext_panel_name[PANEL_NAME_MAX_LEN];
+#endif
 };
+
+#ifdef CONFIG_FB_MSM8960
+#define HDMI_VFRMT_640x480p60_4_3 0
+#define HDMI_VFRMT_720x480p60_16_9 2
+#define HDMI_VFRMT_1280x720p60_16_9 3
+#define HDMI_VFRMT_720x576p50_16_9 17
+#define HDMI_VFRMT_1920x1080p24_16_9 31
+#define HDMI_VFRMT_1920x1080p30_16_9 33
+
+typedef struct
+{
+	uint8_t format;
+	uint8_t reg_a3;
+	uint8_t reg_a6;
+}mhl_driving_params;
+#endif /* CONFIG_FB_MSM8960 */
 
 struct msm_hdmi_platform_data {
 	int irq;
@@ -502,6 +583,10 @@ struct msm_hdmi_platform_data {
 	int (*cec_power)(int on);
 	int (*init_irq)(void);
 	bool (*check_hdcp_hw_support)(void);
+#ifdef CONFIG_FB_MSM8960
+	mhl_driving_params *driving_params;
+	int dirving_params_count;
+#endif /* CONFIG_FB_MSM8960 */
 };
 
 struct msm_i2c_platform_data {

@@ -54,7 +54,7 @@ static int mpp_debug_set(void *data, u64 val)
 	test_result = mpp_config_digital_out(mpp, (unsigned)val);
 	if (test_result) {
 		printk(KERN_ERR
-			   "%s: mpp_config_digital_out \
+			   "[K] %s: mpp_config_digital_out \
 			   [mpp(%d) = 0x%x] failed (err=%d)\n",
 			   __func__, mpp, (unsigned)val, test_result);
 	}

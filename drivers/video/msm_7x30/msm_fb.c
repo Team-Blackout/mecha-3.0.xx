@@ -62,6 +62,11 @@ static void msmfb_resume(struct msmfb_info *msmfb);
 #define BLIT_TIME 0x4
 #define SHOW_UPDATES 0x8
 
+#ifdef CONFIG_PANEL_SELF_REFRESH
+extern struct panel_icm_info *panel_icm;
+extern wait_queue_head_t panel_update_wait_queue;
+#endif
+
 #define DLOG(mask, fmt, args...) \
 do { \
 	if ((msmfb_debug_mask | SUSPEND_RESUME) & mask) \
@@ -1051,7 +1056,8 @@ static int msmfb_ioctl(struct fb_info *p, unsigned int cmd, unsigned long arg)
 			ret = -EINVAL;
 		} else
 			ret = msmfb_overlay_set(p, argp);
-		PR_DISP_INFO("MSMFB_OVERLAY_SET ret=%d\n", ret);
+		if (ret < 0)
+			PR_DISP_INFO("MSMFB_OVERLAY_SET ret=%d\n", ret);
 		break;
 	case MSMFB_OVERLAY_UNSET:
 		ret = msmfb_overlay_unset(p, argp);
@@ -1118,18 +1124,23 @@ static int msmfb_ioctl(struct fb_info *p, unsigned int cmd, unsigned long arg)
 					if (phys_addr[i] == (void *)usb_pjt_info.latest_offset)
 						break;
 					if (!phys_addr[i]) {
+						int result;
 						unsigned long pmem_vbase;
 						unsigned long pmem_base;
 						unsigned long pmem_size;
 						struct file *map_file;
 						phys_addr[i] = (void *)usb_pjt_info.latest_offset;
 						/* call get_pmem_file only to get information */
-						get_pmem_file((unsigned int)phys_addr[i], &pmem_base, &pmem_vbase, &pmem_size, &map_file);
-						printk(KERN_ERR "%s: phys %p, virt %p\n",
-							__func__, (void *)pmem_base, (void *)pmem_vbase);
-						virt_addr[i] = (void*)pmem_vbase;
-						pmem_mapped++;
-						put_pmem_file(map_file);
+						result = get_pmem_file((unsigned int)phys_addr[i],
+							&pmem_base, &pmem_vbase, &pmem_size, &map_file);
+						if (result == 0) {
+							printk(KERN_ERR "%s: phys %p, virt %p\n",
+								__func__, (void *)pmem_base, (void *)pmem_vbase);
+							virt_addr[i] = (void*)pmem_vbase;
+							pmem_mapped++;
+							put_pmem_file(map_file);
+						} else
+							PR_DISP_ERR("Can't get pmem information with fd.\n");
 						break;
 					}
 				}
@@ -1290,7 +1301,6 @@ static int setup_fbmem(struct msmfb_info *msmfb, struct platform_device *pdev)
 	fbram_size = pdev->resource[0].end - pdev->resource[0].start + 1;
 	fbram_phys = (char *)pdev->resource[0].start;
 	fbram = ioremap((unsigned long)fbram_phys, fbram_size);
-
 	if (!fbram) {
 		printk(KERN_ERR "fbram ioremap failed!\n");
 		return -ENOMEM;

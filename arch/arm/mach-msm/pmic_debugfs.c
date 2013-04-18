@@ -28,7 +28,7 @@ static int debug_lp_mode_control(char *buf, int size)
 
 	cnt = sscanf(buf, "%u %u", &cmd, &id);
 	if (cnt < 2) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d", __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d", __func__, cnt);
 		return -EINVAL;
 	}
 
@@ -46,7 +46,7 @@ static int debug_vreg_set_level(char *buf, int size)
 
 	cnt = sscanf(buf, "%u %u", &vreg, &level);
 	if (cnt < 2) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d", __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d", __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_vreg_set_level(vreg, level) < 0)
@@ -63,7 +63,7 @@ static int debug_vreg_pull_down_switch(char *buf, int size)
 
 	cnt = sscanf(buf, "%u %u", &cmd, &id);
 	if (cnt < 2) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d", __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d", __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_vreg_pull_down_switch(cmd, id) < 0)
@@ -81,7 +81,7 @@ static int debug_secure_mpp_control_digital_output(char *buf, int size)
 
 	cnt = sscanf(buf, "%u %u %u", &which, &level, &out);
 	if (cnt < 3) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 
@@ -100,7 +100,7 @@ static int debug_secure_mpp_config_i_sink(char *buf, int size)
 
 	cnt = sscanf(buf, "%u %u %u", &which, &level, &onoff);
 	if (cnt < 3) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 
@@ -119,7 +119,7 @@ static int debug_secure_mpp_config_digital_input(char *buf, int size)
 
 	cnt = sscanf(buf, "%u %u %u", &which, &level, &dbus);
 	if (cnt < 3) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_secure_mpp_config_digital_input(which, level, dbus) < 0)
@@ -136,7 +136,7 @@ static int debug_rtc_start(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &time);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	hal = (struct rtc_time 	*)&time;
@@ -178,7 +178,7 @@ int debug_rtc_enable_alarm(char *buf, int size)
 
 	cnt = sscanf(buf, "%u %u", &alarm, &time);
 	if (cnt < 2) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	hal = (struct rtc_time 	*)&time;
@@ -198,7 +198,7 @@ static int debug_rtc_disable_alarm(char *buf, int size)
 
 	cnt = sscanf(buf, "%u", &alarm);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_rtc_disable_alarm(alarm) < 0)
@@ -236,7 +236,7 @@ static int debug_rtc_set_time_adjust(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &adjust);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_rtc_set_time_adjust(adjust) < 0)
@@ -263,7 +263,7 @@ static int debug_set_led_intensity(char *buf, int size)
 
 	cnt = sscanf(buf, "%u %d", &type, &level);
 	if (cnt < 2) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_set_led_intensity(type, level) < 0)
@@ -279,7 +279,7 @@ static int debug_flash_led_set_current(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &milliamps);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_flash_led_set_current(milliamps) < 0)
@@ -295,7 +295,7 @@ static int debug_flash_led_set_mode(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &mode);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_flash_led_set_mode(mode) < 0)
@@ -311,7 +311,7 @@ static int debug_flash_led_set_polarity(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &pol);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_flash_led_set_polarity(pol) < 0)
@@ -327,7 +327,7 @@ static int debug_speaker_cmd(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &cmd);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_speaker_cmd(cmd) < 0)
@@ -342,7 +342,7 @@ static int debug_set_speaker_gain(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &gain);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_set_speaker_gain(gain) < 0)
@@ -358,7 +358,7 @@ static int debug_mic_en(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_mic_en(enable) < 0)
@@ -384,7 +384,7 @@ static int debug_mic_set_volt(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &vol);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_mic_set_volt(vol) < 0)
@@ -410,7 +410,7 @@ static int debug_spkr_en_right_chan(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_en_right_chan(enable) < 0)
@@ -435,7 +435,7 @@ static int debug_spkr_en_left_chan(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_en_left_chan(enable) < 0)
@@ -471,7 +471,7 @@ static int debug_set_spkr_configuration(char *buf, int size)
 		    &cfg.is_sink_curr_from_ref_volt_cir_en);
 
 	if (cnt < 8) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 
@@ -507,7 +507,7 @@ static int debug_set_speaker_delay(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &delay);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_set_speaker_delay(delay) < 0)
@@ -523,7 +523,7 @@ static int debug_speaker_1k6_zin_enable(char *buf, int size)
 
 	cnt = sscanf(buf, "%u", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_speaker_1k6_zin_enable(enable) < 0)
@@ -539,7 +539,7 @@ static int debug_spkr_set_mux_hpf_corner_freq(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &freq);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_set_mux_hpf_corner_freq(freq) < 0)
@@ -565,7 +565,7 @@ static int debug_spkr_add_right_left_chan(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_add_right_left_chan(enable) < 0)
@@ -591,7 +591,7 @@ static int debug_spkr_en_stereo(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_en_stereo(enable) < 0)
@@ -616,7 +616,7 @@ static int debug_spkr_select_usb_with_hpf_20hz(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_select_usb_with_hpf_20hz(enable) < 0)
@@ -641,7 +641,7 @@ static int debug_spkr_bypass_mux(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_bypass_mux(enable) < 0)
@@ -666,7 +666,7 @@ static int debug_spkr_en_hpf(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_en_hpf(enable) < 0)
@@ -691,7 +691,7 @@ static int debug_spkr_en_sink_curr_from_ref_volt_cir(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_en_sink_curr_from_ref_volt_cir(enable) < 0)
@@ -717,7 +717,7 @@ static int debug_vib_mot_set_volt(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &vol);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_vib_mot_set_volt(vol) < 0)
@@ -732,7 +732,7 @@ static int debug_vib_mot_set_mode(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &mode);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_vib_mot_set_mode(mode) < 0)
@@ -748,7 +748,7 @@ static int debug_vib_mot_set_polarity(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &pol);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_vib_mot_set_polarity(pol) < 0)
@@ -763,7 +763,7 @@ static int debug_vid_en(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_vid_en(enable) < 0)
@@ -788,7 +788,7 @@ static int debug_vid_load_detect_en(char *buf, int size)
 
 	cnt = sscanf(buf, "%d", &enable);
 	if (cnt < 1) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_vid_load_detect_en(enable) < 0)
@@ -810,7 +810,7 @@ static int debug_spkr_en(char *buf, int size)
 
 	cnt = sscanf(buf, "%d %d", &left_right, &enable);
 	if (cnt < 2) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_en(left_right, enable) >= 0) {
@@ -838,7 +838,7 @@ static int debug_spkr_set_gain(char *buf, int size)
 
 	cnt = sscanf(buf, "%d %d", &left_right, &enable);
 	if (cnt < 2) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_set_gain(left_right, enable) >= 0) {
@@ -865,7 +865,7 @@ static int debug_spkr_set_delay(char *buf, int size)
 
 	cnt = sscanf(buf, "%d %d", &left_right, &delay);
 	if (cnt < 2) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_set_delay(left_right, delay) >= 0) {
@@ -893,7 +893,7 @@ static int debug_spkr_en_mute(char *buf, int size)
 
 	cnt = sscanf(buf, "%d %d", &left_right, &enable);
 	if (cnt < 2) {
-		printk(KERN_ERR "%s: sscanf failed cnt=%d" , __func__, cnt);
+		printk(KERN_ERR "[K] %s: sscanf failed cnt=%d" , __func__, cnt);
 		return -EINVAL;
 	}
 	if (pmic_spkr_en_mute(left_right, enable) >= 0) {

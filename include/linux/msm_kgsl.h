@@ -34,6 +34,16 @@
 #define KGSL_CLK_MEM_IFACE 0x00000010
 #define KGSL_CLK_AXI	0x00000020
 
+/*
+ * Reset status values for context
+ */
+enum kgsl_ctx_reset_stat {
+	KGSL_CTX_STAT_NO_ERROR				= 0x00000000,
+	KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT		= 0x00000001,
+	KGSL_CTX_STAT_INNOCENT_CONTEXT_RESET_EXT	= 0x00000002,
+	KGSL_CTX_STAT_UNKNOWN_CONTEXT_RESET_EXT		= 0x00000003
+};
+
 #define KGSL_MAX_PWRLEVELS 5
 
 #define KGSL_CONVERT_TO_MBPS(val) \
@@ -110,6 +120,7 @@ enum kgsl_property_type {
 	KGSL_PROP_MMU_ENABLE 	  = 0x00000006,
 	KGSL_PROP_INTERRUPT_WAITS = 0x00000007,
 	KGSL_PROP_VERSION         = 0x00000008,
+	KGSL_PROP_GPU_RESET_STAT  = 0x00000009
 };
 
 struct kgsl_shadowprop {
@@ -153,11 +164,12 @@ struct kgsl_device_platform_data {
 	int num_levels;
 	int (*set_grp_async)(void);
 	unsigned int idle_timeout;
+	bool strtstp_sleepwake;
 	unsigned int nap_allowed;
 	unsigned int clk_map;
 	unsigned int idle_needed;
 	struct msm_bus_scale_pdata *bus_scale_table;
-#if !defined(CONFIG_MSM_KGSL_ADRENO200) && !defined(CONFIG_MSM_KGSL_ADRENO205)
+#if !defined(CONFIG_MSM_KGSL_ADRENO200) && !defined(CONFIG_MSM_KGSL_ADRENO220)
 	struct kgsl_device_iommu_data *iommu_data;
 	int iommu_count;
 #else

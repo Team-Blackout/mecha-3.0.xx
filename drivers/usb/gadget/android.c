@@ -87,6 +87,9 @@
 #ifdef CONFIG_USB_ANDROID_ECM
 #include "f_ecm.c"
 #endif
+#ifdef CONFIG_USB_ETH_PASS_FW
+#include "passthru.c"
+#endif
 #include "u_ether.c"
 #ifdef CONFIG_USB_ANDROID_USBNET
 #include "f_usbnet.c"
@@ -827,7 +830,9 @@ static struct android_usb_function serial_function = {
 /* ADB */
 static int adb_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
 {
-	return adb_setup();
+	struct android_dev *dev = _android_dev;
+
+	return adb_setup(dev->pdata->adb_perf_lock_on?true:false);
 }
 
 static void adb_function_cleanup(struct android_usb_function *f)
@@ -889,6 +894,10 @@ static int acm_function_init(struct android_usb_function *f, struct usb_composit
 
 	config = f->config;
 	config->instances = 1;
+#ifdef CONFIG_PASCAL_DETECT
+	usb_register_notifier(&pascal_connect_status_notifier);
+	switch_dev_register(&kddi_switch);
+#endif
 	return gserial_setup(cdev->gadget, MAX_ACM_INSTANCES);
 }
 
@@ -901,10 +910,10 @@ static void acm_function_cleanup(struct android_usb_function *f)
 
 static int acm_function_bind_config(struct android_usb_function *f, struct usb_configuration *c)
 {
-	int i;
 	int ret = 0;
+#if 0
+	int i;
 	struct acm_function_config *config = f->config;
-
 	for (i = 0; i < config->instances; i++) {
 		ret = acm_bind_config(c, i);
 		if (ret) {
@@ -912,6 +921,14 @@ static int acm_function_bind_config(struct android_usb_function *f, struct usb_c
 			break;
 		}
 	}
+#else
+        /* /dev/ttyHSUSB1 */
+        ret = acm_bind_config(c, 1);
+        if (ret) {
+                pr_err("Could not bind acm1 config\n");
+        }
+#endif
+
 
 	return ret;
 }
@@ -2413,6 +2430,9 @@ static int __init init(void)
 	INIT_DELAYED_WORK(&dev->init_work, android_usb_init_work);
 #ifdef CONFIG_USB_ANDROID_USBNET
 	INIT_WORK(&reenumeration_work, do_reenumeration_work);
+#endif
+#ifdef CONFIG_PASCAL_DETECT
+	INIT_WORK(&pascal_work, android_switch_pascal_mode_fn);
 #endif
 
 	ret = android_create_device(dev);

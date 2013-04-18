@@ -134,6 +134,7 @@ typedef struct wlp_info {
 wlp_info_t *g_wl_protect = NULL;
 
 static void wl_iw_protect_timerfunc(ulong data);
+int wifi_restart_fail = 0;
 #endif
 
 static int iw_link_state = 0;
@@ -671,6 +672,43 @@ dev_wlc_intvar_get(
 
 	return (error);
 }
+
+
+//2012-05-22 Tkip CounterMeasure ++++
+#define AP_TKIP_COUNTERMEASURES   1
+#define AP_WPA_WPA2_MIXED         1
+#ifdef AP_TKIP_COUNTERMEASURES
+static unsigned long mic_jif_cur = 0;
+static int mic_err_cnt = 0;
+static void wl_iw_mic_block(struct work_struct *work);
+DECLARE_DELAYED_WORK(start_mic, wl_iw_mic_block);
+
+static void wl_iw_mic_block(struct work_struct *work)
+{
+	int ret, cm;
+	printf("console: Driver: enter[%s]: Second MIC error in 60 seconds\n", __FUNCTION__);
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
+		rtnl_lock();
+#endif
+
+		/* Do not allow others to associate */
+		cm = 1;
+		printf("console: driver: set WLC_TKIP_COUNTERMEASURES!!\n");
+
+		if ((ret = dev_wlc_ioctl(priv_dev, WLC_TKIP_COUNTERMEASURES, &cm, sizeof(cm))) != 0)
+			printf("console : driver %s: Failed to set WLC_TKIP_COUNTERMEASURES (err=%d)\n", __FUNCTION__, ret);
+
+		/* Deauth all STAs */
+		if ((ret = wl_iw_softap_deassoc_stations(priv_dev, NULL)) != 0)
+			printf("console:%s: Failed to deauth (err=%d)\n", __FUNCTION__, ret);
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
+		rtnl_unlock();
+#endif
+
+}
+#endif /*AP_TKIP_COUNTERMEASURES*/
 
 
 #if WIRELESS_EXT > 12
@@ -7851,7 +7889,57 @@ static int wl_iw_set_ap_security(struct net_device *dev, struct ap_profile *ap)
 
 		wpa_auth = WPA2_AUTH_PSK;
 		dev_wlc_intvar_set(dev, "wpa_auth", wpa_auth);
+//2012-05-22 ++++
+#ifdef AP_WPA_WPA2_MIXED
+	} else if (strnicmp(ap->sec, "wpa-wpa2-mixed", strlen("wpa-wpa2-mixed")) == 0) {
 
+		wsec_pmk_t psk;
+		size_t key_len;
+
+		wsec = AES_ENABLED | TKIP_ENABLED;
+		dev_wlc_intvar_set(dev, "wsec", wsec);
+
+		key_len = strlen(ap->key);
+		if (key_len < WSEC_MIN_PSK_LEN || key_len > WSEC_MAX_PSK_LEN) {
+			WL_SOFTAP(("passphrase must be between %d and %d characters long\n",
+					   WSEC_MIN_PSK_LEN, WSEC_MAX_PSK_LEN));
+			return -1;
+		}
+		if (key_len < WSEC_MAX_PSK_LEN) {
+			unsigned char output[2*SHA1HashSize];
+			char key_str_buf[WSEC_MAX_PSK_LEN+1];
+
+
+			memset(output, 0, sizeof(output));
+			pbkdf2_sha1(ap->key, ap->ssid, strlen(ap->ssid), 4096, output, 32);
+
+			ptr = key_str_buf;
+			for (i = 0; i < (WSEC_MAX_PSK_LEN/8); i++) {
+
+				sprintf(ptr, "%02x%02x%02x%02x", (uint)output[i*4], \
+						(uint)output[i*4+1], (uint)output[i*4+2], \
+						(uint)output[i*4+3]);
+				ptr += 8;
+			}
+			WL_SOFTAP(("%s: passphase = %s\n", __FUNCTION__, key_str_buf));
+
+			psk.key_len = htod16((ushort)WSEC_MAX_PSK_LEN);
+			memcpy(psk.key, key_str_buf, psk.key_len);
+		} else {
+			psk.key_len = htod16((ushort) key_len);
+			memcpy(psk.key, ap->key, key_len);
+		}
+		psk.flags = htod16(WSEC_PASSPHRASE);
+		dev_wlc_ioctl(dev, WLC_SET_WSEC_PMK, &psk, sizeof(psk));
+
+		wpa_auth = WPA2_AUTH_PSK | WPA_AUTH_PSK;
+		dev_wlc_intvar_set(dev, "wpa_auth", wpa_auth);
+
+		WL_SOFTAP(("=====================\n"));
+		WL_SOFTAP((" wsec & auth set 'wpa-wpa2-mixed' (AES/TKIP), result:&d %d\n", res));
+		WL_SOFTAP(("=====================\n"));
+#endif /* AP_WPA_WPA2_MIXED */
+//2012-05-22 ----
 	} else if (strnicmp(ap->sec, "wpa-psk", strlen("wpa-psk")) == 0) {
 
 		
@@ -9688,6 +9776,33 @@ wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void* data)
 		memcpy(micerrevt->src_addr.sa_data, &e->addr, ETHER_ADDR_LEN);
 		micerrevt->src_addr.sa_family = ARPHRD_ETHER;
 
+//2012-05-22 Tkip CounterMeasure ++++
+#ifdef AP_TKIP_COUNTERMEASURES
+		if (ap_cfg_running) {
+			if(mic_err_cnt == 0)
+			{
+				mic_err_cnt++;
+				printf("Console : Driver :Rece WLC_E_MIC_ERROR 1st!!\n");
+				mic_jif_cur = jiffies;
+			}
+			else if(mic_err_cnt == 1)
+			{
+				if(jiffies_to_msecs(ABS((long)(jiffies-mic_jif_cur))) < 60000)
+				{
+					printf("Console : Driver : Rece WLC_E_MIC_ERROR 2st less 60sec Issue the TKIP_countermeasure\n");
+					schedule_delayed_work(&start_mic, HZ);
+					mic_err_cnt = 0;
+				}
+				else
+				{
+					printf("Console : Driver : Rece WLC_E_MIC_ERROR 2st GT 60sec igonre\n");
+					mic_err_cnt = jiffies;
+				}
+			}
+		}
+#endif /* AP_TKIP_COUNTERMEASURES */
+//2012-05-22 kip CounterMeasure ----
+
 		break;
 	}
 #ifdef BCMWPA2
@@ -10093,7 +10208,7 @@ wl_iw_sta_restart(struct net_device *dev)
         wl_iw_t *iw;
         union iwreq_data wrqu;
         char extra[IW_CUSTOM_MAX + 1];
-        int cmd = 0;
+	int cmd = 0, ret = 0, retry = 0;
 
         WL_TRACE(("Enter %s\n", __FUNCTION__));
 
@@ -10124,7 +10239,13 @@ wl_iw_sta_restart(struct net_device *dev)
         g_iscan->iscan_state = ISCAN_STATE_IDLE;
 #endif
 
-        dhd_dev_reset(dev, 1);
+retry:
+	if ((ret = dhd_dev_reset(dev, 1)) && (retry < 3)) {
+		retry++;
+		WL_ERROR(("%s: reset true %d times.\n", __func__, retry));
+		goto retry;
+	}
+
 
 #if defined(BCMLXSDMMC)
         sdioh_stop(NULL);
@@ -10139,7 +10260,18 @@ wl_iw_sta_restart(struct net_device *dev)
         sdioh_start(NULL, 0);
 #endif
 
-        dhd_dev_reset(dev, 0);
+	if ((ret = dhd_dev_reset(dev, 0)) && (retry < 3)) {
+		retry++;
+		WL_ERROR(("%s: reset false %d times.\n", __func__, retry));
+		goto retry;
+	}
+
+	if ((retry > 3) && ret) {
+		WL_ERROR(("%s: dhd_dev_rest failed over %d times.\n", __func__, retry));
+		wifi_restart_fail = 1;
+		dhd_os_start_unlock(iw->pub);
+		return;
+	}
 
 #if defined(BCMLXSDMMC)
         sdioh_start(NULL, 1);
@@ -10160,6 +10292,7 @@ wl_iw_sta_restart(struct net_device *dev)
         }
 
         dhd_os_start_unlock(iw->pub);
+	wifi_restart_fail = 0;
 	WL_ERROR(("%s: WIFI_RECOVERY \n", __FUNCTION__));
 	wl_iw_send_priv_event(dev, "WIFI_RECOVERY");
         return;
@@ -10459,6 +10592,12 @@ void wl_iw_detach(void)
 #endif 
 	wl_iw_bt_release();
 
+//2012-05-22 Tkip CounterMeasure ++++
+#ifdef AP_TKIP_COUNTERMEASURES
+	cancel_delayed_work_sync(&start_mic);
+
+#endif /* AP_TKIP_COUNTERMEASURES */
+//2012-05-22 Tkip CounterMeasure ----
 #ifdef WL_PROTECT
 	wl_iw_protect_release();
 #endif
