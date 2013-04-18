@@ -102,7 +102,7 @@ struct sdio_ch_info {
 
 static struct sdio_channel *sdio_mux_ch;
 static struct sdio_ch_info sdio_ch[8];
-struct wake_lock sdio_mux_ch_wakelock;
+//struct wake_lock sdio_mux_ch_wakelock;
 
 struct sdio_mux_hdr {
 	uint16_t magic_num;
@@ -357,7 +357,7 @@ static void sdio_mux_read_data(struct work_struct *work)
 	ptr = skb_put(skb_mux, sz);
 
 	/* half second wakelock is fine? */
-	wake_lock_timeout(&sdio_mux_ch_wakelock, HZ / 2);
+//	wake_lock_timeout(&sdio_mux_ch_wakelock, HZ / 2);
 	rc = sdio_read(sdio_mux_ch, ptr, sz);
 	DBG("[lte] %s: read %d\n", __func__, rc);
 	if (rc) {
@@ -653,12 +653,12 @@ static int msm_rmnet_sdio_probe(struct platform_device *pdev)
 	for (rc = 0; rc < 8; rc++)
 		spin_lock_init(&sdio_ch[rc].lock);
 
-	wake_lock_init(&sdio_mux_ch_wakelock, WAKE_LOCK_SUSPEND,
-		       "rmnet_sdio_mux");
+//	wake_lock_init(&sdio_mux_ch_wakelock, WAKE_LOCK_SUSPEND,
+//		       "rmnet_sdio_mux");
 	rc = sdio_open("SDIO_RMNET_DATA", &sdio_mux_ch, NULL, sdio_mux_notify);
 	if (rc < 0) {
 		pr_err("[lte] Error - %s: sido open failed %d\n", __func__, rc);
-		wake_lock_destroy(&sdio_mux_ch_wakelock);
+//		wake_lock_destroy(&sdio_mux_ch_wakelock);
 		destroy_workqueue(sdio_mux_workqueue);
 		return rc;
 	}
