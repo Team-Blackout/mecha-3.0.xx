@@ -490,6 +490,9 @@ static struct i2c_board_info i2c_Sensors_devices[] = {
 		.platform_data = &gsensor_platform_data,
 		.irq = MSM_GPIO_TO_INT(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_GSENSOR_INT_N)),
 	},
+};
+
+static struct i2c_board_info i2c_CM3628_devices[] = {
 	{
 		I2C_BOARD_INFO(CM3628_I2C_NAME, 0x30 >> 1),
 		.platform_data = &cm3628_pdata,
@@ -1224,14 +1227,6 @@ static struct i2c_board_info i2c_tps_devices[] = {
 	{
 		I2C_BOARD_INFO("tps65200", 0xD4 >> 1),
 		.platform_data = &tps65200_data,
-	},
-};
-
-static struct i2c_board_info i2c_CM3628_devices[] = {
-	{
-		I2C_BOARD_INFO(CM3628_I2C_NAME, 0x30 >> 1),
-		.platform_data = &cm3628_pdata,
-		.irq = MSM_GPIO_TO_INT(PM8058_GPIO_PM_TO_SYS(MECHA_ALS_SHUTDOWN)),
 	},
 };
 
