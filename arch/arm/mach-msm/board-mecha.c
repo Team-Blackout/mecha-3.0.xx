@@ -562,8 +562,21 @@ static int pm8058_gpios_init(void)
 	};
 
 	/* direct key */
-	struct pm8xxx_gpio_init_info keypad_gpio = {
-		PM8058_GPIO_PM_TO_SYS(0),
+	struct pm8xxx_gpio_init_info vol_up = {
+		PM8058_GPIO_PM_TO_SYS(MECHA_VOL_UP),
+		{
+			.direction      = PM_GPIO_DIR_IN,
+			.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+			.output_value   = 0,
+			.pull           = PM_GPIO_PULL_UP_31P5,
+			.vin_sel        = PM8058_GPIO_VIN_S3,
+			.out_strength   = PM_GPIO_STRENGTH_NO,
+			.function       = PM_GPIO_FUNC_NORMAL,
+		}
+	};
+
+	struct pm8xxx_gpio_init_info vol_dn = {
+		PM8058_GPIO_PM_TO_SYS(MECHA_VOL_DN),
 		{
 			.direction      = PM_GPIO_DIR_IN,
 			.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
@@ -651,7 +664,7 @@ static int pm8058_gpios_init(void)
 	};
 
 	/* G Sensor INT*/
-	struct pm8xxx_gpio_init_info gpio_gsensor_int_n = {
+	/* struct pm8xxx_gpio_init_info gpio_gsensor_int_n = {
 		PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_GSENSOR_INT_N),
 		{
 			.direction      = PM_GPIO_DIR_IN,
@@ -663,7 +676,7 @@ static int pm8058_gpios_init(void)
 			.function       = PM_GPIO_FUNC_NORMAL,
 			.inv_int_pol    = 0,
 		},
-	};
+	}; */
 
 	/* E-Compass INT */
 	struct pm8xxx_gpio_init_info gpio_compass_int_n = {
@@ -800,11 +813,11 @@ static int pm8058_gpios_init(void)
 		return rc;
 	}
 
-	rc = pm8xxx_gpio_config(gpio_gsensor_int_n.gpio, &gpio_gsensor_int_n.config);
+	/*rc = pm8xxx_gpio_config(gpio_gsensor_int_n.gpio, &gpio_gsensor_int_n.config);
 	if (rc) {
 		pr_err("%s MECHA_GPIO_GSENSOR_INT_N config failed\n", __func__);
 		return rc;
-	}
+	}*/
 
 	rc = pm8xxx_gpio_config(gpio_compass_int_n.gpio, &gpio_compass_int_n.config);
 	if (rc) {
@@ -839,18 +852,18 @@ static int pm8058_gpios_init(void)
 	}
 
 
-	keypad_gpio.gpio = MECHA_VOL_UP;
-	pm8xxx_gpio_config(keypad_gpio.gpio, &keypad_gpio.config);
-	keypad_gpio.gpio = MECHA_VOL_DN;
-	pm8xxx_gpio_config(keypad_gpio.gpio, &keypad_gpio.config);
+	vol_up.gpio = MECHA_VOL_UP;
+	pm8xxx_gpio_config(vol_up.gpio, &vol_up.config);
+	vol_dn.gpio = MECHA_VOL_DN;
+	pm8xxx_gpio_config(vol_dn.gpio, &vol_dn.config);
 
 	return 0;
 }
 
 static struct htc_headset_gpio_platform_data htc_headset_gpio_data = {
-	.hpin_gpio		= 0,
+	.hpin_gpio			= PM8058_GPIO_PM_TO_SYS(MECHA_AUD_HP_DETz),
 	.key_enable_gpio	= 0,
-	.mic_select_gpio	= 0,
+	.mic_select_gpio	= MECHA_AUD_MICPATH_SEL,
 };
 
 static struct platform_device htc_headset_gpio = {
@@ -1030,7 +1043,7 @@ static struct pm8058_led_platform_data pm8058_leds_data_XC = {
 };
 
 static struct platform_device pm8058_leds_XC = {
-	.name	= "leds-pm8058",
+	.name	= "leds-pm8058-xc",
 	.id	= -1,
 	.dev	= {
 		.platform_data	= &pm8058_leds_data_XC,
@@ -2960,12 +2973,6 @@ static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.memory_type = MEMTYPE_EBI1,
 };
 
-static struct android_pmem_platform_data android_pmem_adsp2_pdata = {
-	.name = "pmem_adsp2",
-	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-	.cached = 0,
-};
-
 static struct android_pmem_platform_data android_pmem_audio_pdata = {
        .name = "pmem_audio",
        .allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
@@ -2977,12 +2984,6 @@ static struct platform_device android_pmem_adsp_device = {
        .name = "android_pmem",
        .id = 2,
        .dev = { .platform_data = &android_pmem_adsp_pdata },
-};
-
-static struct platform_device android_pmem_adsp2_device = {
-	.name = "android_pmem",
-	.id = 3,
-	.dev = { .platform_data = &android_pmem_adsp2_pdata },
 };
 
 static struct platform_device android_pmem_audio_device = {
@@ -3344,7 +3345,6 @@ static struct platform_device *devices[] __initdata = {
 	&msm_rotator_device,
 #endif
 	&android_pmem_adsp_device,
-	&android_pmem_adsp2_device,
 	&android_pmem_audio_device,
 	&msm_device_i2c,
 	&msm_device_i2c_2,
@@ -4792,14 +4792,6 @@ static int __init pmem_adsp_size_setup(char *p)
 }
 early_param("pmem_adsp_size", pmem_adsp_size_setup);
 
-/*static unsigned pmem_adsp2_size = MSM_PMEM_ADSP2_SIZE;
-static int __init pmem_adsp2_size_setup(char *p)
-{
-	pmem_adsp2_size = memparse(p, NULL);
-	return 0;
-}
-early_param("pmem_adsp2_size", pmem_adsp2_size_setup);*/
-
 static struct memtype_reserve msm7x30_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
@@ -4829,7 +4821,6 @@ static void __init size_pmem_devices(void)
 {
 #ifdef CONFIG_ANDROID_PMEM
 	size_pmem_device(&android_pmem_adsp_pdata, MSM_PMEM_ADSP_BASE, pmem_adsp_size);
-//	size_pmem_device(&android_pmem_adsp2_pdata, MSM_PMEM_ADSP2_BASE, pmem_adsp2_size);
 	size_pmem_device(&android_pmem_pdata, MSM_PMEM_MDP_BASE, pmem_sf_size);
 #endif
 }
@@ -4846,7 +4837,6 @@ static void __init reserve_pmem_memory(void)
 {
 #ifdef CONFIG_ANDROID_PMEM
 	reserve_memory_for(&android_pmem_adsp_pdata);
-	reserve_memory_for(&android_pmem_adsp2_pdata);
 	reserve_memory_for(&android_pmem_pdata);
 #endif
 }
