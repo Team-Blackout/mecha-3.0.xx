@@ -364,6 +364,46 @@ static void modem_reset_start_cleanup(void)
 
 }
 
+/*
+ * Blocks and waits for endpoint if a reset is in progress.
+ *
+ * @returns
+ *    ENETRESET     Reset is in progress and a notification needed
+ *    ERESTARTSYS   Signal occurred
+ *    0             Reset is not in progress
+ */
+static int wait_for_restart_and_notify(struct msm_rpc_endpoint *ept)
+{
+	unsigned long flags;
+	int ret = 0;
+	DEFINE_WAIT(__wait);
+
+	for (;;) {
+		prepare_to_wait(&ept->restart_wait, &__wait,
+				TASK_INTERRUPTIBLE);
+
+		spin_lock_irqsave(&ept->restart_lock, flags);
+		if (ept->restart_state == RESTART_NORMAL) {
+			spin_unlock_irqrestore(&ept->restart_lock, flags);
+			break;
+		} else if (ept->restart_state & RESTART_PEND_NTFY) {
+			ept->restart_state &= ~RESTART_PEND_NTFY;
+			spin_unlock_irqrestore(&ept->restart_lock, flags);
+			ret = -ENETRESET;
+			break;
+		}
+		if (signal_pending(current) &&
+		   ((!(ept->flags & MSM_RPC_UNINTERRUPTIBLE)))) {
+			spin_unlock_irqrestore(&ept->restart_lock, flags);
+			ret = -ERESTARTSYS;
+			break;
+		}
+		spin_unlock_irqrestore(&ept->restart_lock, flags);
+		schedule();
+	}
+	finish_wait(&ept->restart_wait, &__wait);
+	return ret;
+}
 
 static struct rr_server *rpcrouter_create_server(uint32_t pid,
 							uint32_t cid,
@@ -1475,16 +1515,6 @@ int msm_rpc_write(struct msm_rpc_endpoint *ept, void *buffer, int count)
 	uint32_t mid;
 	unsigned long flags;
 
-	if (((rq->prog&0xFFFFFFF0) == RMT_STORAGE_APIPROG_BE32) ||
-		((rq->prog&0xFFFFFFF0) == RMT_STORAGE_SRV_APIPROG_BE32) ||
-		(be32_to_cpu(rq->prog) == BATT_A2M_PROG) ||
-		(be32_to_cpu(rq->prog) == BATT_M2A_PROG)) {
-		printk(KERN_DEBUG
-			"%s: prog = 0x%X, procedure = %d, type = %d, xid = %d\n",
-			__func__, be32_to_cpu(rq->prog), be32_to_cpu(rq->procedure)
-			, be32_to_cpu(rq->type), be32_to_cpu(rq->xid));
-	}
-
 	/* snoop the RPC packet and enforce permissions */
 
 	/* has to have at least the xid and type fields */
@@ -1530,7 +1560,7 @@ int msm_rpc_write(struct msm_rpc_endpoint *ept, void *buffer, int count)
 		}
 		hdr.dst_pid = reply->pid;
 		hdr.dst_cid = reply->cid;
-		IO("REPLY to xid:0x%03x @ %d:%08x (%d bytes)\n",
+		IO("REPLY to xid=%d @ %d:%08x (%d bytes)\n",
 		   be32_to_cpu(rq->xid), hdr.dst_pid, hdr.dst_cid, count);
 	}
 
@@ -1745,26 +1775,24 @@ int __msm_rpc_read(struct msm_rpc_endpoint *ept,
 	unsigned long flags;
 	int rc;
 
-	IO("READ on ept %p\n", ept);
-	spin_lock_irqsave(&ept->restart_lock, flags);
-	if (ept->restart_state !=  RESTART_NORMAL) {
-		ept->restart_state &= ~RESTART_PEND_NTFY;
-		spin_unlock_irqrestore(&ept->restart_lock, flags);
-		return -ENETRESET;
-	}
-	spin_unlock_irqrestore(&ept->restart_lock, flags);
+	rc = wait_for_restart_and_notify(ept);
+	if (rc)
+		return rc;
 
+	IO("READ on ept %p\n", ept);
 	if (ept->flags & MSM_RPC_UNINTERRUPTIBLE) {
 		if (timeout < 0) {
 			wait_event(ept->wait_q, (ept_packet_available(ept) ||
-						   ept->forced_wakeup));
+						   ept->forced_wakeup ||
+						   ept->restart_state));
 			if (!msm_rpc_clear_netreset(ept))
 				return -ENETRESET;
 		} else {
 			rc = wait_event_timeout(
 				ept->wait_q,
 				(ept_packet_available(ept) ||
-				 ept->forced_wakeup),
+				 ept->forced_wakeup ||
+				 ept->restart_state),
 				timeout);
 			if (!msm_rpc_clear_netreset(ept))
 				return -ENETRESET;
@@ -1775,7 +1803,8 @@ int __msm_rpc_read(struct msm_rpc_endpoint *ept,
 		if (timeout < 0) {
 			rc = wait_event_interruptible(
 				ept->wait_q, (ept_packet_available(ept) ||
-					      ept->forced_wakeup));
+					ept->forced_wakeup ||
+					ept->restart_state));
 			if (!msm_rpc_clear_netreset(ept))
 				return -ENETRESET;
 			if (rc < 0)
@@ -1784,7 +1813,8 @@ int __msm_rpc_read(struct msm_rpc_endpoint *ept,
 			rc = wait_event_interruptible_timeout(
 				ept->wait_q,
 				(ept_packet_available(ept) ||
-				 ept->forced_wakeup),
+				 ept->forced_wakeup ||
+				 ept->restart_state),
 				timeout);
 			if (!msm_rpc_clear_netreset(ept))
 				return -ENETRESET;
@@ -1815,17 +1845,6 @@ int __msm_rpc_read(struct msm_rpc_endpoint *ept,
 
 	*frag_ret = pkt->first;
 	rq = (void*) pkt->first->data;
-
-	if (((rq->prog&0xFFFFFFF0) == RMT_STORAGE_APIPROG_BE32) ||
-		((rq->prog&0xFFFFFFF0) == RMT_STORAGE_SRV_APIPROG_BE32) ||
-		(be32_to_cpu(rq->prog) == BATT_A2M_PROG) ||
-		(be32_to_cpu(rq->prog) == BATT_M2A_PROG)) {
-		printk(KERN_DEBUG
-			"%s: prog = 0x%X, procedure = %d, type = %d, xid = %d\n",
-			__func__, be32_to_cpu(rq->prog), be32_to_cpu(rq->procedure)
-			, be32_to_cpu(rq->type), be32_to_cpu(rq->xid));
-	}
-
 	if ((rc >= (sizeof(uint32_t) * 3)) && (rq->type == 0)) {
 		/* RPC CALL */
 		reply = get_avail_reply(ept);

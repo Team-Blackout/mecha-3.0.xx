@@ -92,7 +92,7 @@
 /* HTC: enum for htc projects */
 enum {
 	MACH_EVERY,
-	MACH_VIGOR,
+	MACH_MECHA,
 };
 
 struct memc_counter {
@@ -585,7 +585,7 @@ static void stop_and_del_timer(struct sdio_al_device *sdio_al_dev);
 int sdio_dun_ch_init = 0; /* provide for sdio_tty.c */
 static atomic_t writer_count;
 static atomic_t reader_count;
-static int mach_vigor;
+static int mach_mecha;
 static int mach_num;
 static int wakeup_from_interrupt;
 unsigned int sdio_dbg_flag = 0;
@@ -974,7 +974,7 @@ static void sdio_al_vote_for_sleep(struct sdio_al_device *sdio_al_dev,
 
 	if (is_vote_for_sleep) {
 		/* HTC: change log level */
-		if (mach_vigor) {
+		if (mach_mecha) {
 			pr_debug(MODULE_NAME ": %s - sdio vote for Sleep", __func__);
 		} else {
 			LPM_DEBUG(sdio_al_dev->dev_log, MODULE_NAME ": %s - sdio vote for Sleep", __func__);
@@ -987,7 +987,7 @@ static void sdio_al_vote_for_sleep(struct sdio_al_device *sdio_al_dev,
 				jiffies_to_msecs(sdio_al_dev->active_duration);
 	} else {
 		/* HTC: change log level */
-		if (mach_vigor) {
+		if (mach_mecha) {
 			pr_debug(MODULE_NAME ": %s - sdio vote against sleep",
 				__func__);
 		} else {
@@ -1109,7 +1109,7 @@ static void sdio_al_sleep(struct sdio_al_device *sdio_al_dev,
 	int i;
 
 	/* Go to sleep */
-	if (mach_vigor) {/* HTC: change the log level */
+	if (mach_mecha) {/* HTC: change the log level */
 		pr_debug(MODULE_NAME  ":Inactivity timer expired."
 			" Going to sleep\n");
 	} else {
@@ -1425,7 +1425,7 @@ static int read_mailbox(struct sdio_al_device *sdio_al_dev, int from_isr)
 		if (!rx_notify_bitmask && !tx_notify_bitmask) {
 			/* ++SSD_RIL Mars_Lin@20110630: print 15 seconds */
 			if (sdio_pending_log_count >= SDIO_PENDING_DATA_LOG_MAX_COUNT) {
-#if !defined(CONFIG_MACH_VIGOR)
+#if !defined(CONFIG_MACH_MECHA)
 				pr_info(MODULE_NAME ":Pending data for card %d "
 						"tx_ch_mask=0x%x, rx_ch_mask=0x%x\n",
 						sdio_al_dev->card->host->index,
@@ -2614,8 +2614,8 @@ static int sdio_al_wake_up(struct sdio_al_device *sdio_al_dev,
 
 	/* Wake up sequence */
 	if (not_from_int) {
-		/* HTC: print out detail mesg for vigor (else) */
-		if (!ch || !ch->name || !mach_vigor) /* HTC */
+		/* HTC: print out detail mesg for mecha (else) */
+		if (!ch || !ch->name || !mach_mecha) /* HTC */
 			LPM_DEBUG(sdio_al_dev->dev_log, MODULE_NAME
 				":Wake up card %d (not by interrupt)\n",
 				sdio_al_dev->host->index);
@@ -3512,7 +3512,7 @@ static int sdio_read_internal(struct sdio_channel *ch, void *data, int len)
 
 	/* HTC: print out the wake up channel info (by int) */
 	if (wakeup_from_interrupt) {
-		if (mach_vigor && ((sdio_dbg_flag & DBG_LPM)
+		if (mach_mecha && ((sdio_dbg_flag & DBG_LPM)
 			|| (sdio_al->debug.debug_lpm_on))) {
 			struct timespec ts; struct rtc_time tm;
 			getnstimeofday(&ts); rtc_time_to_tm(ts.tv_sec, &tm);
@@ -4621,9 +4621,9 @@ static int __init sdio_al_init(void)
 	unsigned int radio_flag = 0;
 
     /* HTC: get machine flag */
-#if defined(CONFIG_MACH_VIGOR)
-    mach_vigor = 1, mach_num = MACH_VIGOR;
-	pr_info(MODULE_NAME ":Machine [Vigor] %s\n", __func__);
+#if defined(CONFIG_MACH_MECHA)
+    mach_mecha = 1, mach_num = MACH_MECHA;
+	pr_info(MODULE_NAME ":Machine [Mecha] %s\n", __func__);
 #endif
 
 	pr_info(MODULE_NAME ":sdio_al_init\n");
@@ -4637,7 +4637,7 @@ static int __init sdio_al_init(void)
 
 	/* HTC: set default sdio_dbg_flag */
 	switch (mach_num) {
-	case MACH_VIGOR:
+	case MACH_MECHA:
 		sdio_dbg_flag = 0;
 		break;
 	default:
@@ -4683,7 +4683,7 @@ static int __init sdio_al_init(void)
 	atomic_set(&writer_count, 0);
 	atomic_set(&reader_count, 0);
 
-	/* HTC: init timer - only affect Vigor */
+	/* HTC: init timer - only affect Mecha */
 	init_timer(&tp_timer);
 	tp_timer.data = (unsigned long)NULL;
 	tp_timer.function = tp_timer_handler;
@@ -4868,7 +4868,7 @@ static ssize_t sdio_dbg_store(struct device *dev,
  *
  *  @data: not used currently
  */
-#if defined(CONFIG_MACH_VIGOR)
+#if defined(CONFIG_MACH_MECHA)
 static void tp_timer_handler(unsigned long data)
 {
 	int i, k;
@@ -4956,7 +4956,7 @@ static void tp_start_timer(void)
     add_timer(&tp_timer);
 }
 
-#else /* machine is not Vigor */
+#else /* machine is not Mecha */
 
 static inline void tp_timer_handler(unsigned long data)
 {
@@ -4968,7 +4968,7 @@ static inline void print_statistic(struct sdio_al_device *dev,
 static inline void tp_start_timer(void)
 {
 }
-#endif /* end of Vigor */
+#endif /* end of Mecha */
 /*============================================================*/
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("SDIO Abstraction Layer");
