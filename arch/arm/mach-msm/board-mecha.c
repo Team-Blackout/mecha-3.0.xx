@@ -166,6 +166,24 @@ struct pm8xxx_gpio_init_info {
 
 int __init mecha_init_panel(void);
 
+static unsigned int skuid;
+unsigned int mecha_get_skuid(void)
+{
+	return skuid;
+}
+
+static unsigned int smi_sz;
+unsigned int mecha_get_smi_sz(void)
+{
+	return smi_sz;
+}
+
+static unsigned int hwid;
+unsigned int mecha_get_hwid(void)
+{
+	return hwid;
+}
+
 static unsigned int engineerid;
 unsigned int mecha_get_engineerid(void)
 {
@@ -198,6 +216,131 @@ static void config_gpio_table(uint32_t *table, int len)
 		}
 	}
 }
+
+#if defined(CONFIG_MSM7KV2_AUDIO)
+static struct resource msm_aictl_resources[] = {
+	{
+		.name = "aictl",
+		.start = 0xa5000100,
+		.end = 0xa5000100,
+		.flags = IORESOURCE_MEM,
+	}
+};
+
+static struct resource msm_mi2s_resources[] = {
+	{
+		.name = "hdmi",
+		.start = 0xac900000,
+		.end = 0xac900038,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name = "codec_rx",
+		.start = 0xac940040,
+		.end = 0xac940078,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name = "codec_tx",
+		.start = 0xac980080,
+		.end = 0xac9800B8,
+		.flags = IORESOURCE_MEM,
+	}
+
+};
+
+static struct msm_lpa_platform_data lpa_pdata = {
+	.obuf_hlb_size = 0x2BFF8,
+	.dsp_proc_id = 0,
+	.app_proc_id = 2,
+	.nosb_config = {
+		.llb_min_addr = 0,
+		.llb_max_addr = 0x3ff8,
+		.sb_min_addr = 0,
+		.sb_max_addr = 0,
+	},
+	.sb_config = {
+		.llb_min_addr = 0,
+		.llb_max_addr = 0x37f8,
+		.sb_min_addr = 0x3800,
+		.sb_max_addr = 0x3ff8,
+	}
+};
+
+static struct resource msm_lpa_resources[] = {
+	{
+		.name = "lpa",
+		.start = 0xa5000000,
+		.end = 0xa50000a0,
+		.flags = IORESOURCE_MEM,
+	}
+};
+
+static struct resource msm_aux_pcm_resources[] = {
+
+	{
+		.name = "aux_codec_reg_addr",
+		.start = 0xac9c00c0,
+		.end = 0xac9c00c8,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name   = "aux_pcm_dout",
+		.start  = 138,
+		.end    = 138,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "aux_pcm_din",
+		.start  = 139,
+		.end    = 139,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "aux_pcm_syncout",
+		.start  = 140,
+		.end    = 140,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "aux_pcm_clkin_a",
+		.start  = 141,
+		.end    = 141,
+		.flags  = IORESOURCE_IO,
+	},
+};
+
+static struct platform_device msm_aux_pcm_device = {
+	.name   = "msm_aux_pcm",
+	.id     = 0,
+	.num_resources  = ARRAY_SIZE(msm_aux_pcm_resources),
+	.resource       = msm_aux_pcm_resources,
+};
+
+static struct platform_device msm_aictl_device = {
+	.name = "audio_interct",
+	.id   = 0,
+	.num_resources = ARRAY_SIZE(msm_aictl_resources),
+	.resource = msm_aictl_resources,
+};
+
+static struct platform_device msm_mi2s_device = {
+	.name = "mi2s",
+	.id   = 0,
+	.num_resources = ARRAY_SIZE(msm_mi2s_resources),
+	.resource = msm_mi2s_resources,
+};
+
+static struct platform_device msm_lpa_device = {
+	.name = "lpa",
+	.id   = 0,
+	.num_resources = ARRAY_SIZE(msm_lpa_resources),
+	.resource = msm_lpa_resources,
+	.dev		= {
+		.platform_data = &lpa_pdata,
+	},
+};
+#endif
 
 static int mecha_ts_power(int on)
 {
@@ -370,7 +513,10 @@ static int __capella_cm3628_power(int on)
 		rc = vreg_enable(vreg);
 		if (rc < 0)
 			printk(KERN_ERR "%s: vreg enable failed\n", __func__);
+		msleep(5);
+		pm8xxx_gpio_cfg(MECHA_ALS_SHUTDOWN, PM_GPIO_DIR_IN, 0, 0, PM_GPIO_PULL_UP_31P5, PM8058_GPIO_VIN_L5, 0, PM_GPIO_FUNC_NORMAL, 0);
 	} else {
+		pm8xxx_gpio_cfg(MECHA_ALS_SHUTDOWN, PM_GPIO_DIR_IN, 0, 0, PM_GPIO_PULL_DN, PM8058_GPIO_VIN_L5, 0, PM_GPIO_FUNC_NORMAL, 0);
 		rc = vreg_disable(vreg);
 		if (rc < 0)
 			printk(KERN_ERR "%s: vreg disable failed\n", __func__);
@@ -1060,12 +1206,6 @@ static struct i2c_board_info i2c_devices[] = {
 		.irq = MSM_GPIO_TO_INT(MECHA_GPIO_TP_INT_N)
 	},
 	{
-		I2C_BOARD_INFO(MICROP_I2C_NAME, 0xCC >> 1),
-		.platform_data = &microp_data,
-		.irq = MSM_GPIO_TO_INT(MECHA_GPIO_UP_INT_N)
-	},
-
-	{
 		I2C_BOARD_INFO(SMSC251X_NAME, 0x58 >> 1),
 		.platform_data = &mecha_smsc251x_data
 	},
@@ -1554,20 +1694,20 @@ static struct platform_device msm_gemini_device = {
 
 #ifdef CONFIG_MSM7KV2_AUDIO
 
-static unsigned aux_pcm_gpio_off[] = {
-	GPIO_CFG(138, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),   /* PCM_DOUT */
-	GPIO_CFG(139, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),   /* PCM_DIN  */
-	GPIO_CFG(140, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),   /* PCM_SYNC */
-	GPIO_CFG(141, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),   /* PCM_CLK  */
-};
+//static unsigned aux_pcm_gpio_off[] = {
+//	GPIO_CFG(138, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),   /* PCM_DOUT */
+//	GPIO_CFG(139, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),   /* PCM_DIN  */
+//	GPIO_CFG(140, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),   /* PCM_SYNC */
+//	GPIO_CFG(141, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),   /* PCM_CLK  */
+//};
 
 static struct tpa2051d3_platform_data tpa2051d3_platform_data = {
 };
-static void __init aux_pcm_gpio_init(void)
-{
-	config_gpio_table(aux_pcm_gpio_off,
-		ARRAY_SIZE(aux_pcm_gpio_off));
-}
+//static void __init aux_pcm_gpio_init(void)
+//{
+//	config_gpio_table(aux_pcm_gpio_off,
+//		ARRAY_SIZE(aux_pcm_gpio_off));
+//}
 
 #endif /* CONFIG_MSM7KV2_AUDIO */
 static struct vreg *vreg_marimba_1;
@@ -1609,97 +1749,6 @@ static void msm_marimba_shutdown_power(void)
 					__func__, rc);
 	}
 };
-
-/*
-static int fm_radio_setup(struct marimba_fm_platform_data *pdata)
-{
-	int rc;
-	uint32_t irqcfg;
-	const char *id = "FMPW";
-
-	pdata->vreg_s2 = vreg_get(NULL, "s2");
-	if (IS_ERR(pdata->vreg_s2)) {
-		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
-			__func__, PTR_ERR(pdata->vreg_s2));
-		return -1;
-	}
-
-	rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 1300);
-	if (rc < 0) {
-		printk(KERN_ERR "%s: voltage level vote failed (%d)\n",
-			__func__, rc);
-		return rc;
-	}
-
-	rc = vreg_enable(pdata->vreg_s2);
-	if (rc) {
-		printk(KERN_ERR "%s: vreg_enable() = %d \n",
-					__func__, rc);
-		return rc;
-	}
-
-	rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_DO,
-					  PMAPP_CLOCK_VOTE_ON);
-	if (rc < 0) {
-		printk(KERN_ERR "%s: clock vote failed (%d)\n",
-			__func__, rc);
-		goto fm_clock_vote_fail;
-	}
-	irqcfg = PCOM_GPIO_CFG(147, 0, GPIO_INPUT, GPIO_NO_PULL,
-					GPIO_2MA);
-	rc = gpio_tlmm_config(irqcfg, GPIO_ENABLE);
-	if (rc) {
-		printk(KERN_ERR "%s: gpio_tlmm_config(%#x)=%d\n",
-				__func__, irqcfg, rc);
-		rc = -EIO;
-		goto fm_gpio_config_fail;
-
-	}
-	return 0;
-fm_gpio_config_fail:
-	pmapp_clock_vote(id, PMAPP_CLOCK_ID_DO,
-				  PMAPP_CLOCK_VOTE_OFF);
-fm_clock_vote_fail:
-	vreg_disable(pdata->vreg_s2);
-	return rc;
-
-};
-
-static void fm_radio_shutdown(struct marimba_fm_platform_data *pdata)
-{
-	int rc;
-	const char *id = "FMPW";
-	uint32_t irqcfg = PCOM_GPIO_CFG(147, 0, GPIO_INPUT, GPIO_PULL_UP,
-					GPIO_2MA);
-	rc = gpio_tlmm_config(irqcfg, GPIO_ENABLE);
-	if (rc) {
-		printk(KERN_ERR "%s: gpio_tlmm_config(%#x)=%d\n",
-				__func__, irqcfg, rc);
-	}
-	rc = vreg_disable(pdata->vreg_s2);
-	if (rc) {
-		printk(KERN_ERR "%s: return val: %d \n",
-					__func__, rc);
-	}
-	rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_DO,
-					  PMAPP_CLOCK_VOTE_OFF);
-	if (rc < 0)
-		printk(KERN_ERR "%s: clock_vote return val: %d \n",
-						__func__, rc);
-	rc = pmapp_vreg_level_vote(id, PMAPP_VREG_S2, 0);
-	if (rc < 0)
-		printk(KERN_ERR "%s: vreg level vote return val: %d \n",
-						__func__, rc);
-}
-
-static struct marimba_fm_platform_data marimba_fm_pdata = {
-	.fm_setup =  fm_radio_setup,
-	.fm_shutdown = fm_radio_shutdown,
-	.irq = MSM_GPIO_TO_INT(147),
-	.vreg_s2 = NULL,
-	.vreg_xo_out = NULL,
-};
-*/
 
 /* Slave id address for FM/CDC/QMEMBIST
  * Values can be programmed using Marimba slave id 0
@@ -1904,130 +1953,6 @@ static struct i2c_board_info tpa2051_devices[] = {
 	},
 };
 
-static struct resource msm_aictl_resources[] = {
-	{
-		.name = "aictl",
-		.start = 0xa5000100,
-		.end = 0xa5000100,
-		.flags = IORESOURCE_MEM,
-	}
-};
-
-static struct resource msm_mi2s_resources[] = {
-	{
-		.name = "hdmi",
-		.start = 0xac900000,
-		.end = 0xac900038,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name = "codec_rx",
-		.start = 0xac940040,
-		.end = 0xac940078,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name = "codec_tx",
-		.start = 0xac980080,
-		.end = 0xac9800B8,
-		.flags = IORESOURCE_MEM,
-	}
-
-};
-
-static struct msm_lpa_platform_data lpa_pdata = {
-	.obuf_hlb_size = 0x2BFF8,
-	.dsp_proc_id = 0,
-	.app_proc_id = 2,
-	.nosb_config = {
-		.llb_min_addr = 0,
-		.llb_max_addr = 0x3ff8,
-		.sb_min_addr = 0,
-		.sb_max_addr = 0,
-	},
-	.sb_config = {
-		.llb_min_addr = 0,
-		.llb_max_addr = 0x37f8,
-		.sb_min_addr = 0x3800,
-		.sb_max_addr = 0x3ff8,
-	}
-};
-
-static struct resource msm_lpa_resources[] = {
-	{
-		.name = "lpa",
-		.start = 0xa5000000,
-		.end = 0xa50000a0,
-		.flags = IORESOURCE_MEM,
-	}
-};
-
-#if 1
-static struct resource msm_aux_pcm_resources[] = {
-
-	{
-		.name = "aux_codec_reg_addr",
-		.start = 0xac9c00c0,
-		.end = 0xac9c00c8,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name   = "aux_pcm_dout",
-		.start  = 138,
-		.end    = 138,
-		.flags  = IORESOURCE_IO,
-	},
-	{
-		.name   = "aux_pcm_din",
-		.start  = 139,
-		.end    = 139,
-		.flags  = IORESOURCE_IO,
-	},
-	{
-		.name   = "aux_pcm_syncout",
-		.start  = 140,
-		.end    = 140,
-		.flags  = IORESOURCE_IO,
-	},
-	{
-		.name   = "aux_pcm_clkin_a",
-		.start  = 141,
-		.end    = 141,
-		.flags  = IORESOURCE_IO,
-	},
-};
-
-static struct platform_device msm_aux_pcm_device = {
-	.name   = "msm_aux_pcm",
-	.id     = 0,
-	.num_resources  = ARRAY_SIZE(msm_aux_pcm_resources),
-	.resource       = msm_aux_pcm_resources,
-};
-#endif
-static struct platform_device msm_aictl_device = {
-	.name = "audio_interct",
-	.id   = 0,
-	.num_resources = ARRAY_SIZE(msm_aictl_resources),
-	.resource = msm_aictl_resources,
-};
-
-static struct platform_device msm_mi2s_device = {
-	.name = "mi2s",
-	.id   = 0,
-	.num_resources = ARRAY_SIZE(msm_mi2s_resources),
-	.resource = msm_mi2s_resources,
-};
-
-static struct platform_device msm_lpa_device = {
-	.name = "lpa",
-	.id   = 0,
-	.num_resources = ARRAY_SIZE(msm_lpa_resources),
-	.resource = msm_lpa_resources,
-	.dev		= {
-		.platform_data = &lpa_pdata,
-	},
-};
-
 #define DEC0_FORMAT ((1<<MSM_ADSP_CODEC_MP3)| \
 	(1<<MSM_ADSP_CODEC_AAC)|(1<<MSM_ADSP_CODEC_WMA)| \
 	(1<<MSM_ADSP_CODEC_WMAPRO)|(1<<MSM_ADSP_CODEC_AMRWB)| \
@@ -2176,6 +2101,18 @@ static struct platform_device msm_device_adspdec = {
 	},
 };
 
+static unsigned aux_pcm_gpio_off[] = {
+	PCOM_GPIO_CFG(138, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),   /* PCM_DOUT */
+	PCOM_GPIO_CFG(139, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),   /* PCM_DIN  */
+	PCOM_GPIO_CFG(140, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),   /* PCM_SYNC */
+	PCOM_GPIO_CFG(141, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),   /* PCM_CLK  */
+};
+
+static void __init aux_pcm_gpio_init(void)
+{
+	config_gpio_table(aux_pcm_gpio_off,
+		ARRAY_SIZE(aux_pcm_gpio_off));
+}
 
 #ifdef CONFIG_USB_GADGET_VERIZON_PRODUCT_ID
 static int mecha_usb_product_id_match(int product_id, int intrsharing)
@@ -2552,110 +2489,31 @@ static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 	},
 };
 
-static struct resource qsd_spi_resources[] = {
-	{
-		.name   = "spi_irq_in",
-		.start	= INT_SPI_INPUT,
-		.end	= INT_SPI_INPUT,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.name   = "spi_irq_out",
-		.start	= INT_SPI_OUTPUT,
-		.end	= INT_SPI_OUTPUT,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.name   = "spi_irq_err",
-		.start	= INT_SPI_ERROR,
-		.end	= INT_SPI_ERROR,
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.name   = "spi_base",
-		.start	= 0xA8000000,
-		.end	= 0xA8000000 + SZ_4K - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name   = "spidm_channels",
-		.flags  = IORESOURCE_DMA,
-	},
-	{
-		.name   = "spidm_crci",
-		.flags  = IORESOURCE_DMA,
-	},
-};
-
-
-#define AMDH0_BASE_PHYS		0xAC200000
-#define ADMH0_GP_CTL		(ct_adm_base + 0x3D8)
-#if 0
-static int msm_qsd_spi_dma_config(void)
-{
-	void __iomem *ct_adm_base = 0;
-	u32 spi_mux = 0;
-	int ret = 0;
-
-	ct_adm_base = ioremap(AMDH0_BASE_PHYS, PAGE_SIZE);
-	if (!ct_adm_base) {
-		pr_err("%s: Could not remap %x\n", __func__, AMDH0_BASE_PHYS);
-		return -ENOMEM;
-	}
-
-	spi_mux = (ioread32(ADMH0_GP_CTL) & (0x3 << 12)) >> 12;
-
-	qsd_spi_resources[4].start  = DMOV_USB_CHAN;
-	qsd_spi_resources[4].end    = DMOV_TSIF_CHAN;
-
-	switch (spi_mux) {
-	case (1):
-		qsd_spi_resources[5].start  = DMOV_HSUART1_RX_CRCI;
-		qsd_spi_resources[5].end    = DMOV_HSUART1_TX_CRCI;
-		break;
-	case (2):
-		qsd_spi_resources[5].start  = DMOV_HSUART2_RX_CRCI;
-		qsd_spi_resources[5].end    = DMOV_HSUART2_TX_CRCI;
-		break;
-	case (3):
-		qsd_spi_resources[5].start  = DMOV_CE_OUT_CRCI;
-		qsd_spi_resources[5].end    = DMOV_CE_IN_CRCI;
-		break;
-	default:
-		ret = -ENOENT;
-	}
-
-	iounmap(ct_adm_base);
-
-	return ret;
-}
-#endif
-
-static struct platform_device qsd_device_spi = {
-	.name		= "spi_qsd",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(qsd_spi_resources),
-	.resource	= qsd_spi_resources,
-};
-
 #ifdef CONFIG_SPI_QSD
-static struct spi_board_info spi3254_board_info[] __initdata = {
+static struct spi_board_info msm_spi_board_info[] __initdata = {
+#ifdef CONFIG_SPI_DISPLAY
+	{
+		.modalias	= "spi_display",
+		.mode		= SPI_MODE_3,
+		.bus_num	= 0,
+		.chip_select	= 2,
+		.max_speed_hz	= 10000000,
+	},
+#else
+	{
+		.modalias	= "spi_qsd",
+		.mode		= SPI_MODE_3,
+		.bus_num	= 0,
+		.chip_select	= 2,
+		.max_speed_hz	= 10000000,
+	},
+#endif
 	{
 		.modalias	= "spi_aic3254",
 		.mode           = SPI_MODE_1,
 		.bus_num        = 0,
 		.chip_select    = 3,
 		.max_speed_hz   = 9963243,
-	}
-};
-
-static struct spi_board_info display_spi_board_info[] __initdata = {
-	{
-		.modalias       = "spi_display",
-		.mode           = SPI_MODE_3,
-		.bus_num        = 0,
-		.chip_select    = 2,
-		.max_speed_hz   = 10000000,
 	}
 };
 #endif
@@ -2690,20 +2548,16 @@ static void msm_qsd_spi_gpio_release(void)
 		ARRAY_SIZE(qsd_spi_gpio_off_table));
 }
 
-
 static struct msm_spi_platform_data qsd_spi_pdata = {
 	.max_clock_speed = 26000000,
 	.gpio_config  = msm_qsd_spi_gpio_config,
 	.gpio_release = msm_qsd_spi_gpio_release,
-//	.dma_config = msm_qsd_spi_dma_config,
 };
-
 
 static void __init msm_qsd_spi_init(void)
 {
 	qsd_device_spi.dev.platform_data = &qsd_spi_pdata;
 }
-
 
 #ifdef CONFIG_USB_EHCI_MSM_72K
 static void msm_hsusb_vbus_power(unsigned phy_info, int on)
@@ -2972,7 +2826,7 @@ static struct android_pmem_platform_data android_pmem_audio_pdata = {
        .name = "pmem_audio",
        .allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
        .cached = 0,
-	.memory_type = MEMTYPE_EBI0,
+	.memory_type = MEMTYPE_EBI1,
 };
 
 static struct platform_device android_pmem_adsp_device = {
@@ -3145,6 +2999,27 @@ static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
 };
 #endif
 
+#ifdef CONFIG_MSM_VPE
+static struct resource msm_vpe_resources[] = {
+	{
+		.start	= 0xAD200000,
+		.end	= 0xAD200000 + SZ_1M - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_VPE,
+		.end	= INT_VPE,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device msm_vpe_device = {
+       .name = "msm_vpe",
+       .id   = 0,
+       .num_resources = ARRAY_SIZE(msm_vpe_resources),
+       .resource = msm_vpe_resources,
+};
+#endif
 #ifdef CONFIG_BT
 static struct platform_device mecha_rfkill = {
 	.name = "mecha_rfkill",
@@ -3302,112 +3177,6 @@ static struct platform_device *devices_CM3602_Proximity[] __initdata = {
 #endif
 };
 
-static struct platform_device *devices[] __initdata = {
-	&ram_console_device,
-#if defined(CONFIG_SERIAL_MSM) || defined(CONFIG_MSM_SERIAL_DEBUGGER)
-	&msm_device_uart2,
-#endif
-#ifdef CONFIG_MSM_PROC_COMM_REGULATOR
-	&msm_proccomm_regulator_dev,
-#endif
-	&asoc_msm_pcm,
-	&asoc_msm_dai0,
-	&asoc_msm_dai1,
-#if defined(CONFIG_SND_MSM_MVS_DAI_SOC)
-	&asoc_msm_mvs,
-	&asoc_mvs_dai0,
-	&asoc_mvs_dai1,
-#endif
-	&msm_device_smd,
-	&msm_device_dmov,
-#if 0
-	&smc91x_device,
-	&smsc911x_device,
-	&msm_device_nand,
-#endif
-	&msm_device_otg,
-	&qsd_device_spi,
-#ifdef CONFIG_MSM_SSBI
-	&msm_device_ssbi_pmic1,
-#endif
-#ifdef CONFIG_I2C_SSBI
-	/*&msm_device_ssbi6,*/
-	&msm_device_ssbi7,
-#endif
-	&android_pmem_device,
-	&msm_migrate_pages_device,
-#ifdef CONFIG_MSM_ROTATOR
-	&msm_rotator_device,
-#endif
-	&android_pmem_adsp_device,
-	&android_pmem_audio_device,
-	&msm_device_i2c,
-	&msm_device_i2c_2,
-	&hs_device,
-#ifdef CONFIG_MSM7KV2_AUDIO
-	&msm_aictl_device,
-	&msm_mi2s_device,
-	&msm_lpa_device,
-	&msm_aux_pcm_device,
-#endif
-
-#ifdef CONFIG_S5K3H1GX
-	&msm_camera_sensor_s5k3h1gx,
-#endif
-
-#ifdef CONFIG_S5K6AAFX
-	&msm_camera_sensor_s5k6aafx,
-#endif
-
-	&msm_device_adspdec,
-	&qup_device_i2c,
-#if defined(CONFIG_MARIMBA_CORE) && \
-   (defined(CONFIG_MSM_BT_POWER) || defined(CONFIG_MSM_BT_POWER_MODULE))
-	/*&msm_bt_power_device,*/
-#endif
-	&msm_kgsl_3d0,
-	&msm_kgsl_2d0,
-	&msm_device_vidc_720p,
-#ifdef CONFIG_MSM_GEMINI
-	&msm_gemini_device,
-#endif
-#if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
-	&msm_device_tsif,
-#endif
-#ifdef CONFIG_MSM_SDIO_AL
-	/* &msm_device_sdio_al, */
-#endif
-
-#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
-		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
-	&qcrypto_device,
-#endif
-
-#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
-		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
-	&qcedev_device,
-#endif
-
-	&htc_battery_pdev,
-	&msm_adc_device,
-	&msm_ebi0_thermal,
-	&msm_ebi1_thermal,
-#ifdef CONFIG_SERIAL_MSM_HS
-	&msm_device_uart_dm1,
-#endif
-#ifdef CONFIG_BT
-	&mecha_rfkill,
-#endif
-#ifdef CONFIG_INPUT_CAPELLA_CM3602
-	&capella_cm3602,
-#endif
-#ifdef CONFIG_FLASHLIGHT_AAT1271
-	&mecha_flashlight_device,
-#endif
-	&pm8058_leds,
-	&cable_detect_device,
-	&htc_drm,
-};
 
 static struct platform_device *devices_Lightsensor[] __initdata = {
 #ifdef CONFIG_INPUT_CAPELLA_CM3602
@@ -4579,6 +4348,116 @@ static void mecha_te_gpio_config(void)
 }
 #endif
 
+static struct platform_device *devices[] __initdata = {
+	&ram_console_device,
+#if defined(CONFIG_SERIAL_MSM) || defined(CONFIG_MSM_SERIAL_DEBUGGER)
+	&msm_device_uart2,
+#endif
+#ifdef CONFIG_MSM_PROC_COMM_REGULATOR
+	&msm_proccomm_regulator_dev,
+#endif
+	&asoc_msm_pcm,
+	&asoc_msm_dai0,
+	&asoc_msm_dai1,
+#if defined(CONFIG_SND_MSM_MVS_DAI_SOC)
+	&asoc_msm_mvs,
+	&asoc_mvs_dai0,
+	&asoc_mvs_dai1,
+#endif
+	&msm_device_smd,
+	&msm_device_dmov,
+#if 0
+	&smc91x_device,
+	&smsc911x_device,
+	&msm_device_nand,
+#endif
+	&msm_device_otg,
+	&qsd_device_spi,
+#ifdef CONFIG_MSM_SSBI
+	&msm_device_ssbi_pmic1,
+#endif
+#ifdef CONFIG_I2C_SSBI
+	/*&msm_device_ssbi6,*/
+	&msm_device_ssbi7,
+#endif
+	&android_pmem_device,
+	&msm_migrate_pages_device,
+#ifdef CONFIG_MSM_ROTATOR
+	&msm_rotator_device,
+#endif
+	&android_pmem_adsp_device,
+	&android_pmem_audio_device,
+	&msm_device_i2c,
+	&msm_device_i2c_2,
+	&hs_device,
+#ifdef CONFIG_MSM7KV2_AUDIO
+	&msm_aictl_device,
+	&msm_mi2s_device,
+	&msm_lpa_device,
+	&msm_aux_pcm_device,
+#endif
+
+#ifdef CONFIG_S5K3H1GX
+	&msm_camera_sensor_s5k3h1gx,
+#endif
+
+#ifdef CONFIG_S5K6AAFX
+	&msm_camera_sensor_s5k6aafx,
+#endif
+
+	&msm_device_adspdec,
+	&qup_device_i2c,
+#if defined(CONFIG_MARIMBA_CORE) && \
+   (defined(CONFIG_MSM_BT_POWER) || defined(CONFIG_MSM_BT_POWER_MODULE))
+	/*&msm_bt_power_device,*/
+#endif
+	&msm_kgsl_3d0,
+	&msm_kgsl_2d0,
+	&msm_device_vidc_720p,
+#ifdef CONFIG_MSM_GEMINI
+	&msm_gemini_device,
+#endif
+#ifdef CONFIG_MSM_VPE
+	&msm_vpe_device,
+#endif
+#if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
+	&msm_device_tsif,
+#endif
+#ifdef CONFIG_MSM_SDIO_AL
+	/* &msm_device_sdio_al, */
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
+		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
+	&qcrypto_device,
+#endif
+
+#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
+		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+	&qcedev_device,
+#endif
+
+	&htc_battery_pdev,
+	&msm_adc_device,
+	&msm_ebi0_thermal,
+	&msm_ebi1_thermal,
+#ifdef CONFIG_SERIAL_MSM_HS
+	&msm_device_uart_dm1,
+#endif
+#ifdef CONFIG_BT
+	&mecha_rfkill,
+#endif
+#ifdef CONFIG_INPUT_CAPELLA_CM3602
+	&capella_cm3602,
+#endif
+#ifdef CONFIG_FLASHLIGHT_AAT1271
+	&mecha_flashlight_device,
+#endif
+	&pm8058_leds,
+	&cable_detect_device,
+	&htc_drm,
+};
+
 static void __init mecha_init(void)
 {
 	int rc = 0;
@@ -4641,7 +4520,7 @@ static void __init mecha_init(void)
 	msm7x30_init_mmc();
 	msm_qsd_spi_init();
 
-//	spi_register_board_info(msm_spi_board_info, ARRAY_SIZE(msm_spi_board_info));
+	spi_register_board_info(msm_spi_board_info, ARRAY_SIZE(msm_spi_board_info));
 
 	msm_pm_set_platform_data(msm_pm_data, ARRAY_SIZE(msm_pm_data));
 	BUG_ON(msm_pm_boot_init(MSM_PM_BOOT_CONFIG_RESET_VECTOR, ioremap(0x0, PAGE_SIZE)));
@@ -4655,8 +4534,8 @@ static void __init mecha_init(void)
 	mecha_init_marimba();
 #ifdef CONFIG_MSM7KV2_AUDIO
 	aux_pcm_gpio_init();
-	spi_register_board_info(spi3254_board_info,
-		ARRAY_SIZE(spi3254_board_info));
+	spi_register_board_info(msm_spi_board_info,
+		ARRAY_SIZE(msm_spi_board_info));
 	msm_snddev_init();
 	mecha_audio_init();
 #endif
@@ -4716,6 +4595,12 @@ static void __init mecha_init(void)
 	/*msm_device_ssbi6.dev.platform_data = &msm_i2c_ssbi6_pdata;*/
 	msm_device_ssbi7.dev.platform_data = &msm_i2c_ssbi7_pdata;
 #endif
+#if 0
+	if (machine_is_msm7x30_fluid())
+		i2c_register_board_info(0, msm_isa1200_board_info,
+			ARRAY_SIZE(msm_isa1200_board_info));
+#endif
+
 	pm8058_gpios_init();
 
 	entry = create_proc_read_entry("emmc", 0, NULL, emmc_partition_read_proc, NULL);
@@ -4754,7 +4639,6 @@ static void __init mecha_init(void)
 		pr_err("failed to create board_properties\n");
 
 	mecha_init_keypad();
-	spi_register_board_info(display_spi_board_info,	ARRAY_SIZE(display_spi_board_info));
 #ifdef CONFIG_MDP4_HW_VSYNC
 	mecha_te_gpio_config();
 #endif
@@ -4763,7 +4647,7 @@ static void __init mecha_init(void)
 	msm_init_pmic_vibrator(3000);
 }
 
-static unsigned pmem_sf_size = MSM_PMEM_MDP_SIZE;
+static unsigned pmem_sf_size = MSM_PMEM_SF_SIZE;
 static int __init pmem_sf_size_setup(char *p)
 {
 	pmem_sf_size = memparse(p, NULL);
@@ -4787,6 +4671,14 @@ static int __init pmem_adsp_size_setup(char *p)
 }
 early_param("pmem_adsp_size", pmem_adsp_size_setup);
 
+static unsigned pmem_audio_size = MSM_PMEM_AUDIO_SIZE;
+static int __init pmem_audio_size_setup(char *p)
+{
+	pmem_audio_size = memparse(p, NULL);
+	return 0;
+}
+early_param("pmem_audio_size", pmem_audio_size_setup);
+
 static struct memtype_reserve msm7x30_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
@@ -4794,10 +4686,7 @@ static struct memtype_reserve msm7x30_reserve_table[] __initdata = {
 		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
 	},
 	[MEMTYPE_EBI1] = {
-		.start	=	PMEM_KERNEL_EBI1_BASE,
-		.limit	=	PMEM_KERNEL_EBI1_SIZE,
-		.size	=	PMEM_KERNEL_EBI1_SIZE,
-		.flags	=	MEMTYPE_FLAGS_FIXED,
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
 	},
 };
 
@@ -4815,8 +4704,10 @@ static void __init size_pmem_device(struct android_pmem_platform_data *pdata, un
 static void __init size_pmem_devices(void)
 {
 #ifdef CONFIG_ANDROID_PMEM
-	size_pmem_device(&android_pmem_adsp_pdata, MSM_PMEM_ADSP_BASE, pmem_adsp_size);
-	size_pmem_device(&android_pmem_pdata, MSM_PMEM_MDP_BASE, pmem_sf_size);
+	size_pmem_device(&android_pmem_adsp_pdata, 0, pmem_adsp_size);
+	size_pmem_device(&android_pmem_audio_pdata, 0, pmem_audio_size);
+	size_pmem_device(&android_pmem_pdata, 0, pmem_sf_size);
+	msm7x30_reserve_table[MEMTYPE_EBI1].size += PMEM_KERNEL_EBI1_SIZE;
 #endif
 }
 
@@ -4832,6 +4723,7 @@ static void __init reserve_pmem_memory(void)
 {
 #ifdef CONFIG_ANDROID_PMEM
 	reserve_memory_for(&android_pmem_adsp_pdata);
+	reserve_memory_for(&android_pmem_audio_pdata);
 	reserve_memory_for(&android_pmem_pdata);
 #endif
 }
@@ -4845,7 +4737,7 @@ static void __init msm7x30_calculate_reserve_sizes(void)
 static int msm7x30_paddr_to_memtype(unsigned int paddr)
 {
 	if (paddr < 0x40000000)
-		return MEMTYPE_EBI0;
+		return MEMTYPE_EBI1;
 	if (paddr >= 0x40000000 && paddr < 0x80000000)
 		return MEMTYPE_EBI1;
 	return MEMTYPE_NONE;
@@ -4891,7 +4783,19 @@ static void __init mecha_init_early(void)
 static void __init mecha_fixup(struct machine_desc *desc, struct tag *tags,
 								char **cmdline, struct meminfo *mi)
 {
-	engineerid = parse_tag_engineerid(tags);
+	engineerid = parse_tag_engineerid((const struct tag *)tags);
+	printk(KERN_INFO "[%s] engineerid=0x%x\n", __func__, engineerid);
+
+	smi_sz = parse_tag_smi((const struct tag *)tags);
+	printk(KERN_INFO "[%s] smi_sz=%d\n", __func__, smi_sz);
+
+	hwid = parse_tag_hwid((const struct tag *)tags);
+	printk(KERN_INFO "[%s] hwid=0x%x\n", __func__, hwid);
+
+	skuid = parse_tag_skuid((const struct tag *)tags);
+	printk(KERN_INFO "[%s] skuid=0x%x\n", __func__, skuid);
+
+//	engineerid = parse_tag_engineerid(tags);
 
 	mi->nr_banks = 2;
 	mi->bank[0].start = MSM_LINUX_BASE1;

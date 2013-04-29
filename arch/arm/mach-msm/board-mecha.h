@@ -38,7 +38,7 @@ extern struct platform_device msm_device_mdp;
 #define MSM_RAM_CONSOLE_BASE	0x00500000
 #define MSM_RAM_CONSOLE_SIZE	0x00100000
 
-#define MSM_PMEM_ADSP_BASE  	0x2B900000
+#define MSM_PMEM_ADSP_BASE  	0x2A400000
 #define MSM_PMEM_ADSP_SIZE	0x03600000 /* for 8M(4:3) + gpu effect */
 #define PMEM_KERNEL_EBI1_BASE   0x2D600000
 #define PMEM_KERNEL_EBI1_SIZE   0x00700000
@@ -51,7 +51,7 @@ extern struct platform_device msm_device_mdp;
 #define MSM_PMEM_MDP_BASE	0x2DD00000
 #define MSM_PMEM_MDP_SIZE	0x02000000
 
-#define MSM_FB_BASE		0x2FD00000
+#define MSM_FB_BASE		0x2FB00000
 #define MSM_FB_SIZE		0x00300000
 
 #define MECHA_GPIO_MDM2AP_STATUS	(77)
@@ -169,6 +169,7 @@ extern struct platform_device msm_device_mdp;
 #define MECHA_GPIO_WIFI_BT_SLEEP_CLK_EN	PMGPIO(38)
 #define MECHA_GPIO_UP_RESET_N		PMGPIO(36)
 
+int mecha_panel_sleep_in(void);
 #ifdef CONFIG_MICROP_COMMON
 void __init mecha_microp_init(void);
 #endif
