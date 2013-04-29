@@ -257,7 +257,7 @@ msm_i2c_interrupt(int irq, void *devid)
 	return IRQ_HANDLED;
 
  out_err:
-	dev_err(dev->dev, "[MSM I2C Err] status = 0x%02X, "
+	dev_info(dev->dev, "[MSM_I2C] status = 0x%02X, "
 		"addr = 0x%02X, flags = 0x%02X, last_addr = %02X, "
 		"reg = 0x%02X, last_reg = 0x%02X, last_flag = 0x%02X, "
 		"cnt = %d, pos = %d\n",
@@ -368,7 +368,8 @@ msm_i2c_recover_bus_busy(struct msm_i2c_dev *dev, struct i2c_adapter *adap)
 		return 0;
 	}
 
-	dev_err(dev->dev, "Bus still busy, status %x, intf %x\n",
+	dev_err(dev->dev, "[MSM_I2C_LATCH] Bus still busy, status = %x"
+		", intf = %x\n",
 		 status, readl(dev->base + I2C_INTERFACE_SELECT));
 	enable_irq(dev->irq);
 	return -EBUSY;
@@ -444,7 +445,7 @@ msm_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 			if (ret)
 				ret = msm_i2c_recover_bus_busy(dev, adap);
 				if (ret) {
-					dev_err(dev->dev,
+					dev_info(dev->dev,
 						"Error waiting for notbusy\n");
 					goto out_err;
 				}
@@ -523,7 +524,7 @@ wait_for_int:
 
 		timeout = wait_for_completion_timeout(&complete, HZ);
 		if (!timeout) {
-			dev_err(dev->dev, "Transaction timed out\n");
+			dev_info(dev->dev, "Transaction timed out\n");
 			writel(I2C_WRITE_DATA_LAST_BYTE,
 				dev->base + I2C_WRITE_DATA);
 			msleep(100);
@@ -534,9 +535,9 @@ wait_for_int:
 			goto out_err;
 		}
 		if (dev->err) {
-			dev_err(dev->dev,
-				"(%04x) Error during data xfer (%d) "
-				"(%02X, %02X)\n",
+			dev_info(dev->dev,
+				"Address = (0x%x), xfer returned (%d) "
+				"(reg, flags) = (0x%02X, 0x%02X)\n",
 				addr, dev->err,
 				dev->reg, msgs->flags);
 			ret = dev->err;
@@ -569,7 +570,7 @@ wait_for_int:
 		remote_mutex_unlock(&dev->r_lock);
 	pm_qos_update_request(&dev->pm_qos_req,
 			      PM_QOS_DEFAULT_VALUE);
-	mod_timer(&dev->pwr_timer, (jiffies + 3*HZ));
+	mod_timer(&dev->pwr_timer, (jiffies + 1));
 	mutex_unlock(&dev->mlock);
 	return ret;
 }
@@ -598,7 +599,7 @@ msm_i2c_probe(struct platform_device *pdev)
 	struct clk *clk;
 	struct msm_i2c_platform_data *pdata;
 
-	printk(KERN_INFO "msm_i2c_probe\n");
+	dev_info(&pdev->dev, "%s\n", __func__);
 
 	/* NOTE: driver uses the static register mapping */
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
