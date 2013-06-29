@@ -35,17 +35,30 @@
 /* 4 */
 #define DBG_SDIO_AL_ALL_RAW_DATA    (1<<(3*4+0))
 #define DBG_SDIO_AL_TXRX_SIZE_LOG   (1<<(3*4+1)) /* depend on DBG_SDIO_AL_XXX_LOG series flags */
-#define DBG_SDIO_QMI_DBG            (1<<(3*4+2)) /* arch/arm/mach-msm/7x30-lte/sdio_ctl.c D D_DUMP_BUFFER */
-#define DBG_SDIO_RMNET_RAW_DATA     (1<<(3*4+3)) /* drivers/net/7x30-lte/msm_rmnet_sdio.c dbg_dump_buf */
+#define DBG_SDIO_QMI_DBG            (1<<(3*4+2)) /* arch/arm/mach-msm/7x30-smd/sdio_ctl.c D D_DUMP_BUFFER */
+#define DBG_SDIO_RMNET_RAW_DATA     (1<<(3*4+3)) /* drivers/net/7x30-smd/msm_rmnet_sdio.c dbg_dump_buf */
 
 /* 5 */
 #define DBG_SDIO_RPC_DBG            (1<<(4*4+0)) /* SDIO_XPRT_DBG */
 #define DBG_SDIO_RPC_INFO           (1<<(4*4+1)) /* SDIO_XPRT_INFO */
-#define DBG_SDIO_RPC_RAW_DATA       (1<<(4*4+2)) /* arch/arm/mach-msm/7x30-lte/rpcrouter_sdio_xprt.c dbg_dump_buf */
-#define DBG_SDIO_RMNET_DBG			(1<<(4*4+3)) /* drivers/net/7x30-lte/msm_rmnet_sdio.c DBG, DBG_INC_READ_CNT, ... */
+#define DBG_SDIO_RPC_RAW_DATA       (1<<(4*4+2)) /* arch/arm/mach-msm/7x30-smd/rpcrouter_sdio_xprt.c dbg_dump_buf */
+#define DBG_SDIO_RMNET_DBG			(1<<(4*4+3)) /* drivers/net/7x30-smd/msm_rmnet_sdio.c DBG, DBG_INC_READ_CNT, ... */
+/*+SSD_RIL: add htc debug mechanism */
+#if defined(CONFIG_HTC_SDIO_DEBUG)
+#define DBG_SDIO_DATA	(1<<(4*4+0))
+#define DBG_SDIO_LPM	(1<<(4*4+1))
+#define DBG_SDIO_CLOSE	(1<<(4*4+2))
+#define DBG_SDIO_DEBUG	(1<<(4*4+3))
+#endif // defined(CONFIG_HTC_SDIO_DEBUG)
+/*-SSD_RIL: add htc debug mechanism */
 
 /* 6 */
-#define DBG_SDIO_QMI_RAW_DATA		(1<<(5*4+0)) /* arch/arm/mach-msm/7x30-lte/sdio_ctl.c dbg_dump_buf*/
+#define DBG_SDIO_QMI_RAW_DATA		(1<<(5*4+0)) /* arch/arm/mach-msm/7x30-smd/sdio_ctl.c dbg_dump_buf*/
+/*+SSD_RIL: add htc debug mechanism */
+#if defined(CONFIG_HTC_SDIO_DEBUG)
+#define DBG_SDIO_INFO	(1<<(5*4+0))
+#endif // defined(CONFIG_HTC_SDIO_DEBUG)
+/*-SSD_RIL: add htc debug mechanism */
 
 #endif /* HTC_END */
 

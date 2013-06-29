@@ -87,7 +87,6 @@ static int kgsl_add_event(struct kgsl_device *device, u32 ts,
 
 		if (event->func)
 			event->func(device, event->priv, cur);
-
 		list_del(&event->list);
 		kfree(event);
 	}
@@ -802,6 +801,40 @@ static long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 
 		break;
 	}
+	case KGSL_PROP_GPU_RESET_STAT:
+	{
+		/* Return reset status of given context and clear it */
+		uint32_t id;
+		struct kgsl_context *context;
+
+		if (param->sizebytes != sizeof(unsigned int)) {
+			result = -EINVAL;
+			break;
+		}
+		/* We expect the value passed in to contain the context id */
+		if (copy_from_user(&id, param->value,
+			sizeof(unsigned int))) {
+			result = -EFAULT;
+			break;
+		}
+		context = kgsl_find_context(dev_priv, id);
+		if (!context) {
+			result = -EINVAL;
+			break;
+		}
+		/*
+		 * Copy the reset status to value which also serves as
+		 * the out parameter
+		 */
+		if (copy_to_user(param->value, &(context->reset_status),
+			sizeof(unsigned int))) {
+			result = -EFAULT;
+			break;
+		}
+		/* Clear reset status once its been queried */
+		context->reset_status = KGSL_CTX_STAT_NO_ERROR;
+		break;
+	}
 	default:
 		result = dev_priv->device->ftbl->getproperty(
 					dev_priv->device, param->type,
@@ -1185,9 +1218,9 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
-	result = remap_vmalloc_range(vma, (void *) entry->memdesc.hostptr, 0);
+	result = kgsl_sharedmem_map_vma(vma, &entry->memdesc);
 	if (result) {
-		KGSL_CORE_ERR("remap_vmalloc_range failed: %d\n", result);
+		KGSL_CORE_ERR("kgsl_sharedmem_map_vma failed: %d\n", result);
 		goto error_free_vmalloc;
 	}
 
@@ -2243,7 +2276,6 @@ EXPORT_SYMBOL(kgsl_register_device);
 int kgsl_device_platform_probe(struct kgsl_device *device,
 			       irqreturn_t (*dev_isr) (int, void*))
 {
-	int result;
 	int status = -EINVAL;
 	struct kgsl_memregion *regspace = NULL;
 	struct resource *res;
@@ -2304,9 +2336,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 		device->id, regspace->mmio_phys_base,
 		regspace->sizebytes, regspace->mmio_virt_base);
 
-	result = kgsl_drm_init(pdev);
-	if (result)
-		goto error_iounmap;
 
 	status = kgsl_register_device(device);
 	if (!status)
@@ -2441,6 +2470,11 @@ static int __init kgsl_core_init(void)
 		if (result)
 			goto err;
 	}
+
+	result = kgsl_drm_init(NULL);
+
+	if (result)
+		goto err;
 
 	return 0;
 

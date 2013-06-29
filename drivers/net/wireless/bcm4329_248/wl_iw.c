@@ -2818,7 +2818,7 @@ static int iwpriv_get_assoc_list(struct net_device *dev,
 
 	memset(sta_maclist, 0, sizeof(mac_buf));
 
-	sta_maclist->count = 8;
+	sta_maclist->count = 10;
 
 	WL_TRACE(("%s: net device:%s, buf_sz:%d\n",
 		__FUNCTION__, dev->name, sizeof(mac_buf)));
@@ -2857,7 +2857,7 @@ static int iwpriv_get_assoc_list(struct net_device *dev,
 
 	p_iwrq->data.length = strlen(mac_lst);
 #else
-	for (i = 0; i < 8; i++) { 
+	for (i = 0; i < 10; i++) {
 		struct ether_addr * id = &sta_maclist->ea[i];
 		if (!ETHER_ISNULLADDR(id->octet)) {
 			scb_val_t scb_val;
@@ -7521,7 +7521,7 @@ static int set_ap_cfg(struct net_device *dev, struct ap_profile *ap)
 	int channel = 0;
 
 	wlc_ssid_t ap_ssid;
-	int max_assoc = 8;
+	int max_assoc = 10;
 
 	int res = 0;
 	int apsta_var = 0;
@@ -8106,7 +8106,7 @@ static int wl_iw_softap_deassoc_stations(struct net_device *dev, u8 *mac)
 	}
 
 	memset(assoc_maclist, 0, sizeof(mac_buf));
-	assoc_maclist->count = 8; 
+	assoc_maclist->count = 10;
 
 	res = dev_wlc_ioctl(dev, WLC_GET_ASSOCLIST, assoc_maclist, 128);
 	if (res != 0) {
@@ -8426,7 +8426,7 @@ get_assoc_sta_list(struct net_device *dev, char *buf, int len)
 	WL_TRACE(("%s: dev_wlc_ioctl(dev:%p, cmd:%d, buf:%p, len:%d)\n",
 		__FUNCTION__, dev, WLC_GET_ASSOCLIST, buf, len));
 
-	maclist->count = 8;
+	maclist->count = 10;
 	ret = dev_wlc_ioctl(dev, WLC_GET_ASSOCLIST, buf, len);
 
 	if (ret != 0) {
@@ -8591,7 +8591,7 @@ static int set_ap_mac_list(struct net_device *dev, void *buf)
 				ap_black_list.ea[i].octet[3], ap_black_list.ea[i].octet[4], ap_black_list.ea[i].octet[5]));
 
 		/* deauth if there is associated station not in list */
-		assoc_maclist->count = 8;
+		assoc_maclist->count = 10;
 		dev_wlc_ioctl(dev, WLC_GET_ASSOCLIST, assoc_maclist, 256);
 		if (assoc_maclist->count) {
 			int j;
@@ -8662,7 +8662,7 @@ set_ap_mac_list(struct net_device *dev, void *buf)
 				maclist->ea[i].octet[5]));
 
 		
-		assoc_maclist->count = 8;
+		assoc_maclist->count = 10;
 		ioc_res = dev_wlc_ioctl(dev, WLC_GET_ASSOCLIST, assoc_maclist, 256);
 		check_error(ioc_res, "ioctl ERROR:", __FUNCTION__, __LINE__);
 		WL_SOFTAP((" Cur assoc clients:%d\n", assoc_maclist->count));

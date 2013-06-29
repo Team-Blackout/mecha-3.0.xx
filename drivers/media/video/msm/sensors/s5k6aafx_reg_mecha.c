@@ -15,7 +15,7 @@
  * 02110-1301, USA.
  *
  */
-
+ 
 #include "s5k6aafx.h"
 
 static const struct s5k6aafx_i2c_reg_conf const reset_init_tbl[] = {
@@ -2342,7 +2342,7 @@ static const struct s5k6aafx_i2c_reg_conf const clk_init_tb2[] = {
 	{S5K6AAFX_REG_WR, 0x0001},
 
 	/* delay 100ms */
-};
+}; 
 
 static const struct s5k6aafx_i2c_reg_conf const prev_snap_conf_init_tbl[] = {
 	/* PREVIEW CONFIGURATION 3 (VGA, YUV) */

@@ -89,7 +89,7 @@ int i2c_smsc251x_read(uint8_t address, uint8_t *data, uint8_t length)
 	mutex_lock(&smsc251x_i2c_rw_mutex);
 	for (retry = 0; retry < I2C_READ_RETRY_TIMES; retry++) {
 		if (i2c_transfer(private_data->client->adapter, msg, 2) == 2) {
-			printk(KERN_ERR"R [%02X] = %s\n", address, hex2string(data, length+1));
+			printk(KERN_INFO"R [%02X] = %s\n", address, hex2string(data, length+1));
 			break;
 		}
 		hr_msleep(5);
@@ -230,7 +230,7 @@ int smsc251x_mdm_port_sw(uint8_t enable)
 	return smsc251x_switch(1, enable);
 }
 
-static int smsc251x_usb_hub_switch(uint8_t enable)
+int smsc251x_usb_hub_switch(uint8_t enable)
 {
 	return smsc251x_switch(enable, 0);
 }

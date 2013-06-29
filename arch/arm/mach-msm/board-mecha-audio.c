@@ -28,13 +28,14 @@
 #include <mach/qdsp5v2_2x/voice.h>
 #include <mach/htc_acoustic_7x30.h>
 #include <mach/htc_acdb_7x30.h>
-#include <linux/spi/spi_aic3254.h>
 #include <mach/board_htc.h>
+#include <linux/spi/spi_aic3254.h>
 
 static struct mutex bt_sco_lock;
 static int curr_rx_mode;
 static atomic_t aic3254_ctl = ATOMIC_INIT(0);
 void mecha_back_mic_enable(int);
+
 
 #define BIT_SPEAKER	(1 << 0)
 #define BIT_HEADSET	(1 << 1)
@@ -95,6 +96,7 @@ static struct q5v2_hw_info q5v2_audio_hw[Q5V2_HW_COUNT] = {
 	},
 };
 
+
 static unsigned aux_pcm_gpio_off[] = {
 	GPIO_CFG(MECHA_GPIO_BT_PCM_OUT, 0, GPIO_CFG_OUTPUT,
 			GPIO_CFG_NO_PULL, 0),
@@ -105,6 +107,7 @@ static unsigned aux_pcm_gpio_off[] = {
 	GPIO_CFG(MECHA_GPIO_BT_PCM_CLK, 0, GPIO_CFG_OUTPUT,
 			GPIO_CFG_NO_PULL, 0),
 };
+
 
 static unsigned aux_pcm_gpio_on[] = {
 	GPIO_CFG(MECHA_GPIO_BT_PCM_OUT, 1, GPIO_CFG_OUTPUT,
@@ -130,18 +133,23 @@ static void config_gpio_table(uint32_t *table, int len)
 	}
 }
 
+
 void mecha_snddev_poweramp_on(int en)
 {
-	pr_info("%s %d\n", __func__, en);
+	pr_aud_info("%s %d\n", __func__, en);
 	if (en) {
-		gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_AUD_SPK_SD), 1);
+		//gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_AUD_SPK_SD), 1);
+		gpio_request(PM8058_GPIO_PM_TO_SYS(MECHA_AUD_SPK_SD),"AMP_EN");
+		gpio_direction_output(PM8058_GPIO_PM_TO_SYS(MECHA_AUD_SPK_SD), 1);
 		mdelay(30);
 		if (!atomic_read(&aic3254_ctl))
 			curr_rx_mode |= BIT_SPEAKER;
-		mdelay(200);
+		mdelay(260);
 	} else {
 		/* Reset AIC3254 */
-		gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_AUD_SPK_SD), 0);
+		//gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_AUD_SPK_SD), 0);
+		gpio_request(PM8058_GPIO_PM_TO_SYS(MECHA_AUD_SPK_SD),"AMP_EN");
+		gpio_direction_output(PM8058_GPIO_PM_TO_SYS(MECHA_AUD_SPK_SD), 0);
 		mdelay(20);
 		if (!atomic_read(&aic3254_ctl))
 			curr_rx_mode &= ~BIT_SPEAKER;
@@ -150,23 +158,33 @@ void mecha_snddev_poweramp_on(int en)
 
 void mecha_snddev_hsed_pamp_on(int en)
 {
-	pr_info("%s %d\n", __func__, en);
+	pr_aud_info("%s %d\n", __func__, en);
 	if (en) {
-		if (system_rev == 0)
-			gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_AUD_AMP_EN_XA), 1);
-		else
-			gpio_set_value(MECHA_GPIO_AUD_AMP_EN, 1);
-		mdelay(30);
+		if (system_rev == 0){
+			/*gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_AUD_AMP_EN_XA), 1);*/
+			gpio_request(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_AUD_AMP_EN_XA),"HP_AMP_EN");
+			gpio_direction_output(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_AUD_AMP_EN_XA), 1);
+		}else{
+			/*gpio_set_value(MECHA_GPIO_AUD_AMP_EN, 1);*/
+			gpio_request(MECHA_GPIO_AUD_AMP_EN,"HP_AMP_EN");
+			gpio_direction_output(MECHA_GPIO_AUD_AMP_EN, 1);
+		}
+		mdelay(90);
 		set_headset_amp(1);
 		if (!atomic_read(&aic3254_ctl))
 			curr_rx_mode |= BIT_HEADSET;
+		mdelay(30);
 	} else {
 		set_headset_amp(0);
-		if (system_rev == 0)
-			gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_AUD_AMP_EN_XA), 0);
-		else
-			gpio_set_value(MECHA_GPIO_AUD_AMP_EN, 0);
-
+		if (system_rev == 0){
+			/*gpio_set_value(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_AUD_AMP_EN_XA), 0);*/
+			gpio_request(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_AUD_AMP_EN_XA),"HP_AMP_EN");
+			gpio_direction_output(PM8058_GPIO_PM_TO_SYS(MECHA_GPIO_AUD_AMP_EN_XA), 0);
+		}else{
+			/*gpio_set_value(MECHA_GPIO_AUD_AMP_EN, 0);*/
+			gpio_request(MECHA_GPIO_AUD_AMP_EN,"HP_AMP_EN");
+			gpio_direction_output(MECHA_GPIO_AUD_AMP_EN, 0);
+		}
 		if (!atomic_read(&aic3254_ctl))
 			curr_rx_mode &= ~BIT_HEADSET;
 	}
@@ -183,18 +201,22 @@ void mecha_snddev_receiver_pamp_on(int en)
 	pr_aud_info("%s %d\n", __func__, en);
 	if (en) {
 		mdelay(20);
-		gpio_set_value(MECHA_GPIO_AUD_AMP_EN, 1);
+		/*gpio_set_value(MECHA_GPIO_AUD_AMP_EN, 1);*/
+		gpio_request(MECHA_GPIO_AUD_AMP_EN,"HP_AMP_EN");
+		gpio_direction_output(MECHA_GPIO_AUD_AMP_EN, 1);
 		set_handset_amp(1);
 		if (!atomic_read(&aic3254_ctl))
 			curr_rx_mode |= BIT_RECEIVER;
+		mdelay(60);
 	} else {
 		set_handset_amp(0);
-		gpio_set_value(MECHA_GPIO_AUD_AMP_EN, 0);
+		/*gpio_set_value(MECHA_GPIO_AUD_AMP_EN, 0);*/
+		gpio_request(MECHA_GPIO_AUD_AMP_EN,"HP_AMP_EN");
+		gpio_direction_output(MECHA_GPIO_AUD_AMP_EN, 0);
 		if (!atomic_read(&aic3254_ctl))
 			curr_rx_mode &= ~BIT_RECEIVER;
 	}
 }
-
 void mecha_snddev_bt_sco_pamp_on(int en)
 {
 	static int bt_sco_refcount;
@@ -216,6 +238,8 @@ void mecha_snddev_bt_sco_pamp_on(int en)
 	mutex_unlock(&bt_sco_lock);
 }
 
+
+
 void mecha_snddev_usb_headset_on(int en)
 {
 	struct vreg *vreg_ncp;
@@ -223,11 +247,11 @@ void mecha_snddev_usb_headset_on(int en)
 
 	vreg_ncp = vreg_get(NULL, "ncp");
 	if (IS_ERR(vreg_ncp)) {
-		pr_err("%s: vreg_get(%s) failed (%ld)\n",
+		pr_aud_err("%s: vreg_get(%s) failed (%ld)\n",
 		__func__, "ncp", PTR_ERR(vreg_ncp));
 		return;
 	}
-	pr_err("%s %d\n",__func__, en);
+	pr_aud_err("%s %d\n", __func__, en);
 
 	if (en) {
 		gpio_set_value(MECHA_GPIO_AUD_UART_SWITCH, 0);
@@ -256,9 +280,9 @@ void mecha_snddev_imic_pamp_on(int en)
 void mecha_snddev_emic_pamp_on(int en)
 {
 	pr_aud_info("%s %d\n", __func__, en);
-	if (en) {
+	if (en)
 		gpio_set_value(MECHA_AUD_MICPATH_SEL, 1);
-	} else
+	else
 		gpio_set_value(MECHA_AUD_MICPATH_SEL, 0);
 }
 
@@ -283,7 +307,7 @@ int mecha_get_rx_vol(uint8_t hw, int network, int level)
 	maxv = info->max_gain[network];
 	minv = info->min_gain[network];
 	vol = minv + ((maxv - minv) * level) / 100;
-	pr_info("%s(%d, %d, %d) => %d\n", __func__, hw, network, level, vol);
+	pr_aud_info("%s(%d, %d, %d) => %d\n", __func__, hw, network, level, vol);
 	return vol;
 }
 
@@ -309,7 +333,7 @@ void mecha_rx_amp_enable(int en)
 			mecha_snddev_hsed_pamp_on(en);
 		if (curr_rx_mode & BIT_RECEIVER)
 			mecha_snddev_receiver_pamp_on(en);
-		atomic_set(&aic3254_ctl, 0);;
+		atomic_set(&aic3254_ctl, 0);
 	}
 }
 
@@ -322,6 +346,7 @@ int mecha_support_aic3254(void)
 {
 	return 1;
 }
+
 
 int mecha_support_back_mic(void)
 {
@@ -395,17 +420,9 @@ static struct aic3254_ctl_ops cops = {
 	.rx_amp_enable = mecha_rx_amp_enable,
 };
 
+
 void __init mecha_audio_init(void)
 {
-	static struct pm_gpio tpa2051_pwr = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-		.output_value   = 0,
-		.pull	        = PM_GPIO_PULL_NO,
-		.vin_sel	= 6,	  /* S3 1.8 V */
-		.out_strength   = PM_GPIO_STRENGTH_HIGH,
-		.function	= PM_GPIO_FUNC_NORMAL,
-	};
 
 	mutex_init(&bt_sco_lock);
 
@@ -419,16 +436,17 @@ void __init mecha_audio_init(void)
 #endif
 	aic3254_register_ctl_ops(&cops);
 
-	pm8xxx_gpio_config(MECHA_AUD_SPK_SD, &tpa2051_pwr);
+#if 0
+	pm8058_gpio_config(MECHA_AUD_SPK_SD, &tpa2051_pwr);
 
 	if (system_rev == 0)
-		pm8xxx_gpio_config(MECHA_GPIO_AUD_AMP_EN_XA, &tpa2051_pwr);
+		pm8058_gpio_config(MECHA_GPIO_AUD_AMP_EN_XA, &tpa2051_pwr);
 	else {
 		gpio_request(MECHA_GPIO_AUD_AMP_EN, "aud_amp_en");
 		gpio_direction_output(MECHA_GPIO_AUD_AMP_EN, 1);
 		gpio_set_value(MECHA_GPIO_AUD_AMP_EN, 0);
 	}
-
+  #endif
 	gpio_request(MECHA_AUD_MICPATH_SEL, "aud_mic_sel");
 	gpio_direction_output(MECHA_AUD_MICPATH_SEL, 1);
 	gpio_set_value(MECHA_AUD_MICPATH_SEL, 0);
@@ -444,5 +462,3 @@ void __init mecha_audio_init(void)
 	gpio_set_value(MECHA_GPIO_BT_PCM_CLK, 0);
 	mutex_unlock(&bt_sco_lock);
 }
-
-

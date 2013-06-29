@@ -782,6 +782,7 @@ char iovbuf[32];
 					dhd_suspend_pktfilter(dhd, value);
 // packet filter for Rogers nat keep alive ---
 
+			msleep(500);
 			dhdhtc_update_wifi_power_mode(is_screen_off);
 			dhdhtc_update_dtim_listen_interval(is_screen_off);
 #if 0

@@ -96,6 +96,7 @@ enum {
 	MDP_RGB_565,      /* RGB 565 planer */
 	MDP_XRGB_8888,    /* RGB 888 padded */
 	MDP_Y_CBCR_H2V2,  /* Y and CbCr, pseudo planer w/ Cb is in MSB */
+	MDP_Y_CBCR_H2V2_ADRENO,
 	MDP_ARGB_8888,    /* ARGB 888 */
 	MDP_RGB_888,      /* RGB 888 planer */
 	MDP_Y_CRCB_H2V2,  /* Y and CrCb, pseudo planer w/ Cr is in MSB */
@@ -112,10 +113,11 @@ enum {
 	MDP_Y_CB_CR_H2V2,  /* Y, Cb and Cr, planar */
 	MDP_Y_CRCB_H1V1,  /* Y and CrCb, pseduo planer w/ Cr is in MSB */
 	MDP_Y_CBCR_H1V1,  /* Y and CbCr, pseduo planer w/ Cb is in MSB */
+	MDP_YCRCB_H1V1,   /* YCrCb interleave */
+	MDP_YCBCR_H1V1,   /* YCbCr interleave */
 	MDP_IMGTYPE_LIMIT,
 	MDP_BGR_565 = MDP_IMGTYPE2_START,      /* BGR 565 planer */
 	MDP_FB_FORMAT,    /* framebuffer format */
-	MDP_Y_CBCR_H2V2_ADRENO,
 	MDP_IMGTYPE_LIMIT2 /* Non valid image type after this enum */
 };
 
@@ -348,6 +350,7 @@ enum {
 	MDP_BLOCK_DMA_P,
 	MDP_BLOCK_DMA_S,
 	MDP_BLOCK_DMA_E,
+	MDP_BLOCK_OVERLAY_2,
 	MDP_BLOCK_MAX,
 };
 
@@ -460,10 +463,20 @@ struct mdp_lut_cfg_data {
 	} data;
 };
 
+struct mdp_qseed_cfg_data {
+	uint32_t block;
+	uint32_t table_num;
+	uint32_t ops;
+	uint32_t len;
+	uint32_t *data;
+};
+
+
 enum {
 	mdp_op_pcc_cfg,
 	mdp_op_csc_cfg,
 	mdp_op_lut_cfg,
+	mdp_op_qseed_cfg,
 	mdp_op_max,
 };
 
@@ -473,6 +486,7 @@ struct msmfb_mdp_pp {
 		struct mdp_pcc_cfg_data pcc_cfg_data;
 		struct mdp_csc_cfg_data csc_cfg_data;
 		struct mdp_lut_cfg_data lut_cfg_data;
+		struct mdp_qseed_cfg_data qseed_cfg_data;
 	} data;
 };
 
@@ -503,10 +517,17 @@ struct msmfb_usb_projector_info {
 	int latest_offset;
 };
 
+enum {
+	DISPLAY_SUBSYSTEM_ID,
+	ROTATOR_SUBSYSTEM_ID,
+};
+
 #ifdef __KERNEL__
 
 /* get the framebuffer physical address information */
-int get_fb_phys_info(unsigned long *start, unsigned long *len, int fb_num);
+int get_fb_phys_info(unsigned long *start, unsigned long *len, int fb_num,
+	int subsys_id);
+
 struct fb_info *msm_fb_get_writeback_fb(void);
 int msm_fb_writeback_init(struct fb_info *info);
 

@@ -57,7 +57,6 @@ struct cable_detect_platform_data {
 	void (*vbus_mpp_config)(void);
 	/* 1 : uart, 0 : usb */
 	void (*usb_uart_switch)(int);
-	void (*usb_hub_enable)(bool);
 	void (*usb_dpdn_switch)(int);
 
 	/* for accessory detection */

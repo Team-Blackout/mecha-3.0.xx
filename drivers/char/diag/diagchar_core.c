@@ -1127,10 +1127,11 @@ static int diagcharmdm_open(struct inode *inode, struct file *file)
 		driver->mdmdata_ready[i] |= EVENT_MASKS_TYPE;
 		driver->mdmdata_ready[i] |= LOG_MASKS_TYPE;
 
+#if defined(CONFIG_ARCH_MSM8X60_LTE)
 		if (driver->ref_count == 0)
 			diagmem_init(driver);
 		driver->ref_count++;
-
+#endif
 		mutex_unlock(&driver->diagcharmdm_mutex);
 		return 0;
 	}
@@ -1156,11 +1157,14 @@ static int diagcharmdm_close(struct inode *inode, struct file *file)
 	if (driver) {
 		mutex_lock(&driver->diagcharmdm_mutex);
 
+#if defined(CONFIG_ARCH_MSM8X60_LTE)
 		driver->ref_count--;
 		/* On Client exit, try to destroy all 3 pools */
 		diagmem_exit(driver, POOL_TYPE_COPY);
 		diagmem_exit(driver, POOL_TYPE_HDLC);
 		diagmem_exit(driver, POOL_TYPE_WRITE_STRUCT);
+
+#endif
 
 		for (i = 0; i < driver->num_mdmclients; i++)
 			if (driver->mdmclient_map[i].pid == current->tgid) {
@@ -1207,11 +1211,13 @@ static long diagcharmdm_ioctl(struct file *filp,
 			/* Poll SMD channels to check for data*/
 			queue_work(driver->mdm_diag_workqueue, &(driver->diag_read_smd_mdm_work));
 #endif
+#if defined(CONFIG_ARCH_MSM8X60_LTE)
 			driver->in_busy_sdio_1 = 0;
 			driver->in_busy_sdio_2 = 0;
 			buf_9k = kzalloc(USB_MAX_OUT_BUF, GFP_KERNEL);
 			if (driver->sdio_ch)
 				queue_work(driver->diag_sdio_wq, &(driver->diag_read_sdio_work));
+#endif
 
 		} else if (driver->logging_mode == USB_MODE) {
 			DIAG_INFO("diagcharmdm_ioctl disable\n");
@@ -1220,6 +1226,9 @@ static long diagcharmdm_ioctl(struct file *filp,
 #if defined(CONFIG_MACH_MECHA)
 			driver->in_busy_mdm_1 = 1;
 			driver->in_busy_mdm_2 = 1;
+#endif
+#if defined(CONFIG_ARCH_MSM8X60_LTE)
+			kfree(buf_9k);
 #endif
 
 			kfree(buf_9k);
@@ -1297,6 +1306,7 @@ static int diagcharmdm_read(struct file *file, char __user *buf, size_t count,
 			driver->in_busy_mdm_2 = 0;
 		}
 #endif
+#ifdef CONFIG_ARCH_MSM8X60_LTE
 		if (driver->in_busy_sdio_1 == 1) {
 
 			num_data++;
@@ -1321,16 +1331,21 @@ static int diagcharmdm_read(struct file *file, char __user *buf, size_t count,
 					write_ptr_mdm_2->length);
 			driver->in_busy_sdio_2 = 0;
 		}
-
+#endif
 		/* copy number of data fields */
 		COPY_USER_SPACE_OR_EXIT(buf+4, num_data, 4);
 		ret -= 4;
 
 		driver->mdmdata_ready[index] ^= USER_SPACE_LOG_TYPE;
-
+#ifdef CONFIG_MACH_MECHA
+		queue_work(driver->mdm_diag_workqueue, &(driver->diag_read_smd_mdm_work));
+#endif
+#ifdef CONFIG_ARCH_MSM8X60_LTE
 		if (driver->sdio_ch)
 			queue_work(driver->diag_sdio_wq, &(driver->diag_read_sdio_work));
-
+#endif
+		if (diag9k_debug_mask)
+			pr_info("%s() return %d byte\n", __func__, ret);
 		goto exit;
 	} else if (driver->mdmdata_ready[index] & USER_SPACE_LOG_TYPE) {
 		/* In case, the thread wakes up and the logging mode is
@@ -1357,6 +1372,9 @@ static int diagcharmdm_read(struct file *file, char __user *buf, size_t count,
 		}
 		if (driver->sdio_ch)
 			queue_work(driver->diag_sdio_wq, &(driver->diag_read_sdio_work));
+
+		if (diag9k_debug_mask)
+			pr_info("%s() return %d byte\n", __func__, ret);
 		goto exit;
 	}
 

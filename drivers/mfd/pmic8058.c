@@ -1195,8 +1195,11 @@ static void pm8058_show_resume_irq(void)
 	for (i = 0; i < NR_PMIC8058_IRQS; i++) {
 		irq = i + pm8xxx_get_irq_base(chip);
 		if (pm8xxx_get_irq_wake_stat(chip, irq)) {
-			if (pm8xxx_get_irq_it_stat(chip, irq))
+			if (pm8xxx_get_irq_it_stat(chip, irq)) {
 				pr_warning("%s: %d triggered\n", __func__, irq);
+				printk(KERN_INFO "[WAKEUP] Resume caused by pmic-%d\n",
+				irq - (NR_MSM_IRQS + NR_GPIO_IRQS));
+			}
 		}
 	}
 }
@@ -1264,10 +1267,17 @@ static int __devinit pm8058_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	rc = pm8058_hard_reset_config(SHUTDOWN_ON_HARD_RESET);
-	if (rc < 0)
-		pr_err("%s: failed to config shutdown on hard reset: %d\n",
-								__func__, rc);
+	/* HTC add  */
+	/* if hardreset_config == 1 enable long press power key reset device */
+	if (pdata->hardreset_config) {
+		rc = pm8058_hard_reset_config(RESTART_ON_HARD_RESET);
+		if (rc < 0)
+			pr_err("%s: failed to config reset on hard reset: %d\n", __func__, rc);
+	} else {
+		rc = pm8058_hard_reset_config(SHUTDOWN_ON_HARD_RESET);
+		if (rc < 0)
+			pr_err("%s: failed to config shutdown on hard reset: %d\n", __func__, rc);
+	}
 
 	return 0;
 

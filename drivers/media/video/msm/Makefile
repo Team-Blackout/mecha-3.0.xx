@@ -95,7 +95,6 @@ obj-$(CONFIG_S5K3H1GX) += s5k3h1gx.o s5k3h1gx_reg_pyd.o
 endif
 
 ifdef CONFIG_S5K3H1GX
-obj-$(CONFIG_MACH_MECHA) += s5k3h1gx.o s5k3h1gx_reg.o
 obj-$(CONFIG_MACH_SPADE) += s5k3h1gx.o s5k3h1gx_reg.o
 obj-$(CONFIG_MACH_VIVO) += s5k3h1gx.o s5k3h1gx_reg.o
 obj-$(CONFIG_MACH_VIVOW) += s5k3h1gx.o s5k3h1gx_reg.o
@@ -105,7 +104,7 @@ endif
 #FIXME: Merge the two ifeq causes VX6953 preview not coming up.
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   obj-$(CONFIG_VX6953) += vx6953_v4l2.o vx6953_reg_v4l2.o
-  obj-$(CONFIG_MT9V113) += mt9v113_v4l2.o mt9v113_reg_lens_9251.o
+  obj-$(CONFIG_MT9V113) += mt9v113_v4l2.o mt9v113_ville_reg_lens_9251.o
 else
   obj-$(CONFIG_MT9V113) += mt9v113.o mt9v113_reg_lens_9251.o
   obj-$(CONFIG_VX6953) += vx6953.o vx6953_reg.o

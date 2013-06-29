@@ -60,9 +60,9 @@ static struct gpio_event_input_info mecha_keypad_input_info = {
 	.flags = GPIOEDF_PRINT_KEYS,
 	.type = EV_KEY,
 #if BITS_PER_LONG != 64 && !defined(CONFIG_KTIME_SCALAR)
-	.debounce_time.tv.nsec = 5 * NSEC_PER_MSEC,
+	.debounce_time.tv.nsec = 8 * NSEC_PER_MSEC,
 # else
-	.debounce_time.tv64 = 5 * NSEC_PER_MSEC,
+	.debounce_time.tv64 = 8 * NSEC_PER_MSEC,
 # endif
 	.keymap = mecha_keypad_input_map,
 	.keymap_size = ARRAY_SIZE(mecha_keypad_input_map),

@@ -354,12 +354,7 @@ err_ptpool_remove:
 int kgsl_gpummu_pt_equal(struct kgsl_pagetable *pt,
 					unsigned int pt_base)
 {
-	struct kgsl_gpummu_pt *gpummu_pt;
-	if (!pt) {
-		KGSL_CORE_ERR("pt is NULL\n");
-		return 0;
-	}
-	gpummu_pt = pt->priv;
+	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
 	return pt && pt_base && (gpummu_pt->base.gpuaddr == pt_base);
 }
 
@@ -687,7 +682,7 @@ kgsl_gpummu_map(void *mmu_specific_pt,
 		flushtlb = 1;
 
 	for_each_sg(memdesc->sg, s, memdesc->sglen, i) {
-		unsigned int paddr = sg_phys(s);
+		unsigned int paddr = kgsl_get_sg_pa(s);
 		unsigned int j;
 
 		/* Each sg entry might be multiple pages long */

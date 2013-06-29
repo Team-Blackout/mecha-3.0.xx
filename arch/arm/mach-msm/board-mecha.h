@@ -16,43 +16,47 @@
 
 #include <mach/board.h>
 
-#define MECHA_GPIO_UART3_RX		53
-#define MECHA_GPIO_UART3_TX		54
-#define MECHA_GPIO_UART3_RTS	55
-#define MECHA_GPIO_UART3_CTS	57
-extern struct platform_device msm_device_mdp;
+#define MECHA_GPIO_UART2_RX 	51
+#define MECHA_GPIO_UART2_TX 	52
 
 /* Macros assume PMIC GPIOs start at 0 */
 #define PM8058_GPIO_PM_TO_SYS(pm_gpio)     (pm_gpio + NR_GPIO_IRQS)
 #define PM8058_GPIO_SYS_TO_PM(sys_gpio)    (sys_gpio - NR_GPIO_IRQS)
 
-#define MSM_LINUX_BASE1		0x05200000
-#define MSM_LINUX_SIZE1		0x0AE00000
-#define MSM_LINUX_BASE2		0x20000000
-#define MSM_LINUX_SIZE2		0x10000000
+#define MSM_LINUX_BASE1			0x05200000
+#define MSM_LINUX_SIZE1			0x0AE00000
+#define MSM_LINUX_BASE2			0x20000000
+#define MSM_LINUX_SIZE2			0x0A400000
 #define MSM_MEM_256MB_OFFSET	0x10000000
 
-#define MSM_GPU_MEM_BASE	0x00100000
-#define MSM_GPU_MEM_SIZE	0x003F0000
+#define MSM_GPU_MEM_BASE		0x00100000
+#define MSM_GPU_MEM_SIZE		0x00300000
 
 #define MSM_RAM_CONSOLE_BASE	0x00500000
 #define MSM_RAM_CONSOLE_SIZE	0x00100000
 
 #define MSM_PMEM_ADSP_BASE  	0x2A400000
-#define MSM_PMEM_ADSP_SIZE	0x03600000 /* for 8M(4:3) + gpu effect */
+#define MSM_PMEM_ADSP_SIZE		0x03200000
+
 #define PMEM_KERNEL_EBI1_BASE   0x2D600000
 #define PMEM_KERNEL_EBI1_SIZE   0x00700000
-#define MSM_PMEM_SF_SIZE	0x02000000
-#define MSM_PMEM_AUDIO_SIZE	0x00200000
 
-#define MSM_PMEM_CAMERA_BASE	0x2DD00000
-#define MSM_PMEM_CAMERA_SIZE	0x00C00000
+#define MSM_PMEM_SF_BASE		0x2DD00000
+#define MSM_PMEM_SF_SIZE		0x01E00000
 
-#define MSM_PMEM_MDP_BASE	0x2DD00000
-#define MSM_PMEM_MDP_SIZE	0x02000000
+#define MSM_FB_BASE				0x2FB00000
+#define MSM_FB_SIZE				0x00500000
 
-#define MSM_FB_BASE		0x2FB00000
-#define MSM_FB_SIZE		0x00300000
+
+#define MECHA_GPIO_PS_HOLD		(29)
+
+#define MECHA_PMIC_GPIO_INT		(27)
+
+#define MECHA_GPIO_UART3_RX		(53)
+#define MECHA_GPIO_UART3_TX		(54)
+#define MECHA_GPIO_UART3_RTS	(55)
+#define MECHA_GPIO_UART3_CTS	(57)
+
 
 #define MECHA_GPIO_MDM2AP_STATUS	(77)
 
@@ -121,8 +125,8 @@ extern struct platform_device msm_device_mdp;
 /* USB */
 #define MECHA_GPIO_AUD_UART_SWITCH	(2)
 #define MECHA_GPIO_USB_AUD_UART_SWITCH	(37)
-#define MECHA_GPIO_USB_ID_PIN		(49)	// Fix Me
-#define MECHA_GPIO_USB_ID1_PIN		(145)	// Fix Me, PMGPIO(13)
+#define MECHA_GPIO_USB_ID_PIN		(49)
+#define MECHA_GPIO_USB_ID1_PIN		(145)
 
 #define MECHA_SPI_DO			(47)
 #define MECHA_SPI_DI			(48)
@@ -169,14 +173,16 @@ extern struct platform_device msm_device_mdp;
 #define MECHA_GPIO_WIFI_BT_SLEEP_CLK_EN	PMGPIO(38)
 #define MECHA_GPIO_UP_RESET_N		PMGPIO(36)
 
-int mecha_panel_sleep_in(void);
-#ifdef CONFIG_MICROP_COMMON
-void __init mecha_microp_init(void);
-#endif
+
+/*display*/
+extern struct platform_device msm_device_mdp;
+extern struct platform_device msm_device_mddi0;
+extern int panel_type;
+
 int mecha_init_mmc(unsigned int sys_rev);
 void __init mecha_audio_init(void);
-int __init mecha_init_keypad(void);
+int mecha_init_keypad(void);
 int __init mecha_wifi_init(void);
-int __init mecha_init_panel(void);
 unsigned int mecha_get_engineerid(void);
+/*int __init mecha_init_panel(unsigned int sys_rev);*/
 #endif /* __ARCH_ARM_MACH_MSM_BOARD_MECHA_H */

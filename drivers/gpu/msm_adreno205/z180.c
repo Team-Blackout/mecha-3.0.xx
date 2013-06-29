@@ -349,7 +349,8 @@ static void z180_cmdstream_start(struct kgsl_device *device)
 	unsigned int cmd = VGV3_NEXTCMD_JUMP << VGV3_NEXTCMD_NEXTCMD_FSHIFT;
 
 	KGSL_PWR_WARN(device, "reset timestamp from(%d, %d), device %d\n",
-	    z180_dev->timestamp, z180_dev->current_timestamp, device->id);
+		z180_dev->timestamp, z180_dev->current_timestamp, device->id);
+
 	z180_dev->timestamp = 0;
 	z180_dev->current_timestamp = 0;
 
@@ -838,8 +839,8 @@ static int z180_wait(struct kgsl_device *device,
 		KGSL_TIMESTAMP_RETIRED);
 	if (ts_processed == 0 && timestamp > 10) {
 		KGSL_DRV_ERR(device, "QCT BUG: "
-		    "timestamp was reset and we are looking for %d\n",
-		    timestamp);
+			"timestamp was reset and we are looking for %d\n",
+			timestamp);
 	}
 
 	timeout = wait_io_event_interruptible_timeout(

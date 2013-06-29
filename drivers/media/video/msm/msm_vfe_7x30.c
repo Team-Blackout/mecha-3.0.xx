@@ -2340,15 +2340,6 @@ static void vfe31_process_error_irq(uint32_t errStatus)
 	vfe31_put_ch_pong_addr((chn), (addr)) : \
 	vfe31_put_ch_ping_addr((chn), (addr)))
 
-/* Sync from Ruby for pmem lookup error - Clean Li 2012.4.25 */
-/* Check flags for irq */
-#define Check_flags_out0 \
-	((1 << (vfe31_ctrl->outpath.out0.ch0)) | (1 << (vfe31_ctrl->outpath.out0.ch1)))
-#define Check_flags_out1 \
-	((1 << (vfe31_ctrl->outpath.out1.ch0)) | (1 << (vfe31_ctrl->outpath.out1.ch1)))
-#define Check_flags_out2 \
-	((1 << (vfe31_ctrl->outpath.out2.ch0)) | (1 << (vfe31_ctrl->outpath.out2.ch1)))
-
 static void vfe31_process_output_path_irq_0(void)
 {
 	uint32_t ping_pong;
@@ -2376,14 +2367,6 @@ static void vfe31_process_output_path_irq_0(void)
 		if (out_bool) {
 			ping_pong = msm_io_r(vfe31_ctrl->vfebase +
 				VFE_BUS_PING_PONG_STATUS);
-
-			/* Sync from Ruby for pmem lookup error - Clean Li 2012.4.25 */
-			if (!(((ping_pong & Check_flags_out0) == Check_flags_out0) ||
-				((ping_pong & Check_flags_out0) == 0x0))) {
-				pr_err("****VfeUnkonwError!FrameSkipStatus=%x-%d\n",
-					(ping_pong & Check_flags_out0), __LINE__);
-				return;
-			}
 
 			/* Y channel */
 			pyaddr = vfe31_get_ch_addr(ping_pong,
@@ -2442,14 +2425,6 @@ static void vfe31_process_snapshot_frame(void)
 	ping_pong = msm_io_r(vfe31_ctrl->vfebase +
 		VFE_BUS_PING_PONG_STATUS);
 
-	/* Sync from Ruby for pmem lookup error - Clean Li 2012.4.25 */
-	if (!(((ping_pong & Check_flags_out1) == Check_flags_out1) ||
-		((ping_pong & Check_flags_out1) == 0x0))) {
-		pr_err("****VfeUnkonwError!FrameSkipStatus=%x-%d\n",
-			(ping_pong & Check_flags_out1), __LINE__);
-		return;
-	}
-
 	/* Y channel */
 	pyaddr = vfe31_get_ch_addr(ping_pong,
 		vfe31_ctrl->outpath.out1.ch0);
@@ -2483,16 +2458,6 @@ static void vfe31_process_snapshot_frame(void)
 
 	ping_pong = msm_io_r(vfe31_ctrl->vfebase +
 		VFE_BUS_PING_PONG_STATUS);
-
-	/* Sync from Ruby for pmem lookup error - Clean Li 2012.4.25 */
-	if (!(((ping_pong & Check_flags_out0) == Check_flags_out0) ||
-		((ping_pong & Check_flags_out0) == 0x0)) ||
-	    !(((ping_pong & Check_flags_out1) == Check_flags_out1) ||
-		((ping_pong & Check_flags_out1) == 0x0))) {
-		pr_err("****VfeUnkonwError!FrameSkipStatus=%x-%d\n",
-			(ping_pong & (Check_flags_out0 | Check_flags_out1)), __LINE__);
-		return;
-	}
 
 	/* Y channel- Main Image */
 	pyaddr = vfe31_get_ch_addr(ping_pong,
@@ -2566,16 +2531,6 @@ static void vfe31_process_multishot_frame(void)
 
 	ping_pong = msm_io_r(vfe31_ctrl->vfebase +
 		VFE_BUS_PING_PONG_STATUS);
-
-	/* Sync from Ruby for pmem lookup error - Clean Li 2012.4.25 */
-	if (!(((ping_pong & Check_flags_out0) == Check_flags_out0) ||
-		((ping_pong & Check_flags_out0) == 0x0)) ||
-	    !(((ping_pong & Check_flags_out1) == Check_flags_out1) ||
-		((ping_pong & Check_flags_out1) == 0x0))) {
-		pr_err("****VfeUnkonwError!FrameSkipStatus=%x-%d\n",
-			(ping_pong & (Check_flags_out0 | Check_flags_out1)), __LINE__);
-		return;
-	}
 
 	/* Y channel- Main Image */
 	pyaddr = vfe31_get_ch_addr(ping_pong,
@@ -2672,14 +2627,6 @@ static void vfe31_process_output_path_irq_2(void)
 	if (out_bool) {
 			ping_pong = msm_io_r(vfe31_ctrl->vfebase +
 				VFE_BUS_PING_PONG_STATUS);
-
-			/* Sync from Ruby for pmem lookup error - Clean Li 2012.4.25 */
-			if (!(((ping_pong & Check_flags_out2) == Check_flags_out2) ||
-				((ping_pong & Check_flags_out2) == 0x0))) {
-				pr_err("****VfeUnkonwError!FrameSkipStatus=%x-%d\n",
-					(ping_pong & Check_flags_out2), __LINE__);
-				return;
-			}
 
 			/* Y channel */
 			pyaddr = vfe31_get_ch_addr(ping_pong,

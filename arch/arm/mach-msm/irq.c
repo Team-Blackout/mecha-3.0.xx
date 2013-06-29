@@ -149,22 +149,3 @@ void __init msm_init_irq(void)
 		set_irq_flags(n, IRQF_VALID);
 	}
 }
-void register_msm_irq_mask(unsigned int irq)
-{
-        uint32_t mask = 1UL << (irq & 31);
-        int smsm_irq = msm_irq_to_smsm[irq];
-
-        mask = 1UL << (smsm_irq - 1);
-        msm_irq_smsm_wake_enable_mask |= mask;
-}
-EXPORT_SYMBOL(register_msm_irq_mask);
-
-void unregister_msm_irq_mask(unsigned int irq)
-{
-        uint32_t mask = 1UL << (irq & 31);
-        int smsm_irq = msm_irq_to_smsm[irq];
-
-        mask = 1UL << (smsm_irq - 1);
-        msm_irq_smsm_wake_enable_mask &= ~mask;
-}
-EXPORT_SYMBOL(unregister_msm_irq_mask);

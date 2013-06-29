@@ -72,7 +72,7 @@ target += smd_rpc_sym.c
 $(obj)/smd_rpc_sym.c: $(src)/smd_rpc_sym $(src)/mkrpcsym.pl
 	$(call if_changed,mkrpcsym)
 
-obj-$(CONFIG_MSM_SCM) += scm.o scm-boot.o htc_simlock-8x60.o htc_drm.o htc_sdservice.o
+obj-$(CONFIG_MSM_SCM) += scm.o scm-boot.o htc_simlock-8x60.o htc_drm.o htc_sdservice.o htc_debug.o
 ifdef CONFIG_ARCH_MSM8960
 	obj-y += tz_log.o
 endif
@@ -155,6 +155,10 @@ obj-$(CONFIG_MSM_RPCSERVER_TIME_REMOTE) += rpc_server_time_remote.o
 obj-$(CONFIG_MSM_RPCSERVER_HANDSET) += rpc_server_handset.o
 endif # End CONFIG_ARCH_MSM7X30_SMD
 
+ifeq ($(CONFIG_MACH_MECHA),y)
+obj-$(CONFIG_MSM_SDIO_DIAG) += sdio_diag.o
+endif
+
 obj-$(CONFIG_MSM_DSPS) += msm_dsps.o
 obj-$(CONFIG_MSM_RESET_MODEM) += reset_modem.o
 obj-$(CONFIG_MSM_IPC_ROUTER_SMD_XPRT) += ipc_router_smd_xprt.o
@@ -162,8 +166,10 @@ obj-$(CONFIG_MSM_IPC_ROUTER) += ipc_router.o
 obj-$(CONFIG_MSM_IPC_ROUTER)+= ipc_socket.o
 obj-$(CONFIG_MSM_DALRPC) += dal.o
 obj-$(CONFIG_MSM_DALRPC_TEST) += dal_remotetest.o
+ifeq ($(CONFIG_ARCH_MSM7X30),y)
 #obj-$(CONFIG_ARCH_MSM7X30) += dal_axi.o
 obj-$(CONFIG_ARCH_MSM7X30) += dal_axi.o htc_drm.o htc_sdservice.o
+endif
 obj-$(CONFIG_ARCH_MSM7X27A) += dal_axi.o htc_drm.o htc_sdservice.o
 obj-$(CONFIG_MSM_ADSP) += qdsp5/
 #obj-$(CONFIG_MSM7KV2_AUDIO) += qdsp5v2/
@@ -286,7 +292,7 @@ obj-$(CONFIG_MACH_PROTOU) += board-protou.o devices-msm7x27a.o devices_htc.o emm
 obj-$(CONFIG_MACH_PROTOU) += display/board-protou-panel.o
 obj-$(CONFIG_MACH_PROTOU) += board-protou-keypad.o
 obj-$(CONFIG_MACH_PROTOU) += board-protou-mmc.o
-obj-$(CONFIG_MACH_PROTOU) += board-protou-wifi.o htc_wifi_nvs.o htc_fast_clk_7k.o board-protou-rfkill.o htc_util_7x2x.o
+obj-$(CONFIG_MACH_PROTOU) += board-protou-wifi.o htc_wifi_nvs.o htc_fast_clk_7k.o board-protou-rfkill.o htc_util_7x2x.o htc_bdaddress.o
 obj-$(CONFIG_MACH_PROTOU) += board-protou-audio.o
 obj-$(CONFIG_ARCH_MSM7X30) += devices-msm7x30.o memory_topology.o devices_htc.o emmc_partitions.o msm_vibrator.o
 obj-$(CONFIG_ARCH_MSM7X30) += clock-local.o clock-7x30.o acpuclock-7x30.o htc_awb_cal.o
@@ -493,12 +499,12 @@ obj-$(CONFIG_MACH_SAGA) += board-saga-mmc.o board-saga-wifi.o
 obj-$(CONFIG_MACH_SAGA) += display/saga-panel.o board-saga-audio.o display/panel-sonywvga-s6d16a0x21-7x30.o
 obj-$(CONFIG_MACH_SAGA) += htc_sleep_clk.o htc_fast_clk_7k.o
 obj-$(CONFIG_MACH_SAGA) += htc_bdaddress.o board-saga-rfkill.o
-obj-$(CONFIG_MACH_MECHA) += board-mecha.o
-obj-$(CONFIG_MACH_MECHA) += board-mecha-microp.o board-mecha-rfkill.o
-obj-$(CONFIG_MACH_MECHA) += board-mecha-keypad.o board-mecha-audio.o
-obj-$(CONFIG_MACH_MECHA) += board-mecha-mmc.o board-mecha-wifi.o
-obj-$(CONFIG_MACH_MECHA) += display/mecha-panel.o
-obj-$(CONFIG_MACH_MECHA) += htc_bdaddress.o
+obj-$(CONFIG_MACH_MECHA) += board-mecha.o htc_util_7x30.o
+obj-$(CONFIG_MACH_MECHA) += board-mecha-keypad.o
+obj-$(CONFIG_MACH_MECHA)+= board-mecha-mmc.o board-mecha-wifi.o
+obj-$(CONFIG_MACH_MECHA) += display/mecha-panel.o board-mecha-audio.o
+obj-$(CONFIG_MACH_MECHA) += htc_sleep_clk.o htc_fast_clk_7k.o
+obj-$(CONFIG_MACH_MECHA) += htc_bdaddress.o board-mecha-rfkill.o
 obj-$(CONFIG_MACH_PRIMOU) += board-primou.o
 obj-$(CONFIG_MACH_PRIMOU) += display/primou-panel.o board-primou-audio.o
 obj-$(CONFIG_MACH_PRIMOU) += board-primou-keypad.o

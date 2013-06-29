@@ -1636,7 +1636,7 @@ arch_idle_exit:
 #ifdef CONFIG_MSM_IDLE_STATS
 	t2 = ktime_to_ns(ktime_get());
 	msm_pm_add_stat(exit_stat, t2 - t1);
-	#if defined(CONFIG_MACH_PRIMODS) || defined(CONFIG_MACH_GOLFU)||defined(CONFIG_MACH_PRIMODD)||defined(CONFIG_MACH_PROTOU)
+	#if defined(CONFIG_MACH_PRIMODS) || defined(CONFIG_MACH_GOLFU)||defined(CONFIG_MACH_PRIMODD)||defined(CONFIG_MACH_MECHA)
 	htc_idle_stat_add(sleep_mode, (u32)(t2 - t1)/1000);
 	#endif
 #endif /* CONFIG_MSM_IDLE_STATS */

@@ -230,7 +230,6 @@ static void print_active_locks(int type)
 	}
 }
 
-#if defined(CONFIG_ARCH_MSM8X60_LTE) || defined(CONFIG_ARCH_MSM7X27)
 void htc_print_active_wake_locks(int type)
 {
 	struct wake_lock *lock;
@@ -255,7 +254,6 @@ void htc_print_active_wake_locks(int type)
 	}
 	spin_unlock_irqrestore(&list_lock, irqflags);
 }
-#endif
 
 static long has_wake_lock_locked(int type)
 {

@@ -17,6 +17,7 @@
 #define N_MDM_WRITE	2 /* Upgrade to 2 with ping pong buffer */
 #define N_MDM_READ	1
 
+extern int sdio_diag_initialized;
 void diagfwd_sdio_init(void);
 void diagfwd_sdio_exit(void);
 int diagfwd_connect_sdio(void);

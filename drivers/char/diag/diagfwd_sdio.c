@@ -210,6 +210,7 @@ static int diag_sdio_probe(struct platform_device *pdev)
 
 	err = sdio_open("SDIO_DIAG", &driver->sdio_ch, driver,
 							 diag_sdio_notify);
+
 	if (err)
 		printk(KERN_INFO "DIAG could not open SDIO channel");
 	else {

@@ -13,6 +13,20 @@
  *
  */
 
+#include <linux/kernel.h>
+#include <linux/fb.h>
+#include <linux/msm_mdp.h>
+#include <linux/interrupt.h>
+#include <linux/wait.h>
+#include <linux/clk.h>
+#include <linux/timer.h>
+#include <linux/file.h>
+#include <linux/major.h>
+#include <mach/msm_iomap.h>
+#include <mach/debug_display.h>
+#include <linux/android_pmem.h>
+
+
 #include <asm/io.h>
 #include <asm/mach-types.h>
 #include <linux/clk.h>
@@ -21,15 +35,16 @@
 #include <linux/init.h>
 #include <linux/leds.h>
 #include <linux/delay.h>
-#include <linux/kernel.h>
+
 #include <linux/spi/spi.h>
 #include <linux/platform_device.h>
-#include <mach/msm_fb-7x30.h>
-#include <mach/msm_iomap.h>
-#include <mach/atmega_microp.h>
 #include <mach/vreg.h>
+#include <mach/msm_fb-7x30.h>
 #include <mach/panel_id.h>
+#include <mach/msm_iomap.h>
+//#include <mach/atmega_microp.h>
 
+#include "../pmic.h"
 #include "../board-mecha.h"
 #include "../devices.h"
 #include "../proc_comm.h"
@@ -753,6 +768,7 @@ struct mdp_reg mecha_auo_mdp_init_color[] = {
 void mecha_mdp_color_enhancement(struct mdp_device *mdp_dev)
 {
 	struct mdp_info *mdp = container_of(mdp_dev, struct mdp_info, mdp_dev);
+
 	if (panel_type == PANEL_AUO) {
 		mdp->write_regs(mdp, mecha_auo_mdp_init_lut, ARRAY_SIZE(mecha_auo_mdp_init_lut));
 		mdp->write_regs(mdp, mecha_auo_mdp_init_color, ARRAY_SIZE(mecha_auo_mdp_init_color));
@@ -993,10 +1009,12 @@ static int mecha_auo_panel_unblank(struct msm_lcdc_panel_ops *ops)
 		mecha_mdp_color_enhancement(mdp_pdata.mdp_dev);
 		color_enhancement = 1;
 	}
+
 	mutex_lock(&panel_lock);
 	spi_display_send_16bit(0x1, 0x51);
 	spi_display_send_16bit(0x0, 0x00);
 	spi_display_send_16bit(0x2, last_val);
+
 	lcm_auo_write_seq(auo_turn_on_backlight, ARRAY_SIZE(auo_turn_on_backlight));
 	mutex_unlock(&panel_lock);
 	return 0;
@@ -1121,10 +1139,10 @@ static struct spi_msg sharp_disable_cabc[] = {
 	LCM_CMD(0x53, 0x2C),
 };
 
+
 static int lcm_sharp_write_seq(struct spi_msg *cmd_table, unsigned size)
 {
 	int i;
-
 	for (i = 0; i < size; i++) {
 		if (cmd_table[i].cmd == LCM_MDELAY) {
 			hr_msleep(cmd_table[i].data[0]);
@@ -1135,19 +1153,22 @@ static int lcm_sharp_write_seq(struct spi_msg *cmd_table, unsigned size)
 	return 0;
 }
 
+
 static int mecha_sharp_panel_init(struct msm_lcdc_panel_ops *ops)
 {
         LCMDBG("\n");
 
         mutex_lock(&panel_lock);
         mecha_sharp_panel_power(1);
+
 	if (panel_type == PANEL_SHARP) {
 		lcm_sharp_write_seq(sharp_init_seq, ARRAY_SIZE(sharp_init_seq));
 		if (panel_rev == 0)
 			lcm_sharp_write_seq(sharp_gamma_seq, ARRAY_SIZE(sharp_gamma_seq));
 	} else
 		lcm_sharp_write_seq(sharp565_init_seq, ARRAY_SIZE(sharp565_init_seq));
-        mutex_unlock(&panel_lock);
+
+	mutex_unlock(&panel_lock);
         return 0;
 }
 
@@ -1162,6 +1183,7 @@ static int mecha_sharp_panel_uninit(struct msm_lcdc_panel_ops *ops)
 
 static int mecha_sharp_panel_unblank(struct msm_lcdc_panel_ops *ops)
 {
+
 	struct spi_msg set_brightness = {
                 .cmd = 0x51,
                 .len = 1,
@@ -1174,10 +1196,12 @@ static int mecha_sharp_panel_unblank(struct msm_lcdc_panel_ops *ops)
 		color_enhancement = 1;
 	}
         mutex_lock(&panel_lock);
+
 	spi_display_send_9bit(&set_brightness);
 	lcm_sharp_write_seq(sharp_turn_on_backlight,
 	ARRAY_SIZE(sharp_turn_on_backlight));
-        mutex_unlock(&panel_lock);
+
+	mutex_unlock(&panel_lock);
         return 0;
 }
 
@@ -1185,7 +1209,9 @@ static int mecha_sharp_panel_blank(struct msm_lcdc_panel_ops *ops)
 {
 	LCMDBG("\n");
 	mutex_lock(&panel_lock);
+
 	lcm_sharp_write_seq(sharp_blank_seq, ARRAY_SIZE(sharp_blank_seq));
+
 	hr_msleep(100);
 	mutex_unlock(&panel_lock);
 	return 0;
@@ -1250,11 +1276,13 @@ static struct platform_device mecha_lcdc_device = {
 static void mecha_brightness_set(struct led_classdev *led_cdev,
 		enum led_brightness val)
 {
+
 	struct spi_msg set_brightness = {
                 .cmd = 0x51,
                 .len = 1,
                 .data = (unsigned char *)&val,
 	};
+
 	uint8_t shrink_br;
 
 	mutex_lock(&panel_lock);
@@ -1266,9 +1294,9 @@ static void mecha_brightness_set(struct led_classdev *led_cdev,
 		shrink_br = 96 * (val - 143) / 112 + 159;
 
 	if (panel_type == PANEL_AUO) {
-		spi_display_send_16bit(0x1, 0x51);
-		spi_display_send_16bit(0x0, 0x00);
-		spi_display_send_16bit(0x2, shrink_br);
+	spi_display_send_16bit(0x1, 0x51);
+	spi_display_send_16bit(0x0, 0x00);
+	spi_display_send_16bit(0x2, shrink_br);
 	} else {
 		set_brightness.data = (unsigned char *)&shrink_br;
 		spi_display_send_9bit(&set_brightness);
@@ -1291,6 +1319,7 @@ static int mecha_cabc_switch(int on)
 			lcm_auo_write_seq(auo_enable_cabc, ARRAY_SIZE(auo_enable_cabc));
 		else
 			lcm_sharp_write_seq(sharp_enable_cabc, ARRAY_SIZE(sharp_enable_cabc));
+
 		mutex_unlock(&panel_lock);
 	} else {
 		printk(KERN_DEBUG "turn off CABC\n");
@@ -1300,6 +1329,7 @@ static int mecha_cabc_switch(int on)
 			lcm_auo_write_seq(auo_disable_cabc, ARRAY_SIZE(auo_disable_cabc));
 		else
 			lcm_sharp_write_seq(sharp_disable_cabc, ARRAY_SIZE(sharp_disable_cabc));
+
 		mutex_unlock(&panel_lock);
 	}
 	return 1;
@@ -1407,8 +1437,8 @@ int __init mecha_init_panel(void)
 		LCMDBG("MECHA AUO Panel:RGB_PANEL_SELE_REFRESH \n");
 		mecha_auo_panel_ops.refresh_enable = mecha_auo_panel_refresh_enable;
 		mecha_auo_panel_ops.refresh_disable = mecha_auo_panel_refresh_disable;
-		msm_device_mdp.dev.platform_data = &mdp_pdata;
 #endif
+		msm_device_mdp.dev.platform_data = &mdp_pdata;
 		mecha_lcdc_platform_data.timing = &mecha_auo_timing;
 		mecha_lcdc_platform_data.panel_ops = &mecha_auo_panel_ops;
 		break;

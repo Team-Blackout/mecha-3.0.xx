@@ -650,6 +650,24 @@ static ssize_t store_usb_phy_setting(struct device *dev,
 	return otg_store_usb_phy_setting(buf, count);
 }
 
+void msm_otg_set_disable_usb(int disable_usb);
+static ssize_t store_usb_disable_setting(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int disable_usb_function;
+	ssize_t  ret;
+
+	ret = kstrtouint(buf, 2, &disable_usb_function);
+	if (ret < 0) {
+		USB_ERR("%s: %d\n", __func__, ret);
+		return 0;
+	}
+	printk(KERN_INFO "USB_disable set by quickboot %d\n", disable_usb_function);
+	msm_otg_set_disable_usb(disable_usb_function);
+
+	return count;
+}
+
 #if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 void msm_otg_set_id_state(int id);
 static ssize_t store_usb_host_mode(struct device *dev,
@@ -722,6 +740,8 @@ static DEVICE_ATTR(dummy_usb_serial_number, 0644,
 static DEVICE_ATTR(usb_car_kit_enable, 0444, show_usb_car_kit_enable, NULL);
 static DEVICE_ATTR(usb_phy_setting, 0664,
 		show_usb_phy_setting, store_usb_phy_setting);
+static DEVICE_ATTR(usb_disable, 0664,
+		NULL, store_usb_disable_setting);
 
 static struct attribute *android_htc_usb_attributes[] = {
 	&dev_attr_usb_cable_connect.attr,
@@ -737,6 +757,7 @@ static struct attribute *android_htc_usb_attributes[] = {
 #ifdef CONFIG_USB_HUB
 	&dev_attr_mdm_port_enabled.attr,
 #endif
+	&dev_attr_usb_disable.attr,
 	NULL
 };
 

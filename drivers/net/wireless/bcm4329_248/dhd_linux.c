@@ -62,6 +62,7 @@
 #include <dhd_bus.h>
 #include <dhd_proto.h>
 #include <dhd_dbg.h>
+#include "../../../mmc/host/msm_sdcc.h"
 
 /*
  * NOTE: to enable keep alive, define KEEP_ALIVE here
@@ -2630,6 +2631,7 @@ extern void disable_dev_wlc_ioctl(void);
 #ifdef CONFIG_MACH_VERDI_LTE
 extern void enable_hlt(void);
 #endif
+extern void mmc_reset_nonremovable(void);
 static void __exit
 dhd_module_cleanup(void)
 {
@@ -2656,6 +2658,7 @@ dhd_module_cleanup(void)
 #endif
         }
 #endif
+	mmc_reset_nonremovable();
 	/* Call customer gpio to turn off power with WL_REG_ON signal */
 	dhd_customer_gpio_wlan_ctrl(WLAN_POWER_OFF);
         printf("[ATS][press_widget][turn_off]\n"); //For Auto Test System log parsing

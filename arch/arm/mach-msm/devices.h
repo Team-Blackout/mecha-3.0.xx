@@ -25,7 +25,6 @@ void __init msm9615_device_init(void);
 void __init msm9615_map_io(void);
 void __init msm_map_msm9615_io(void);
 void __init msm9615_init_irq(void);
-int panel_init_spi_hack(void);
 
 extern struct platform_device asoc_msm_pcm;
 extern struct platform_device asoc_msm_dai0;
@@ -104,8 +103,6 @@ extern struct platform_device msm_device_i2c;
 extern struct platform_device msm_device_i2c_2;
 
 extern struct platform_device qup_device_i2c;
-
-extern struct platform_device qsd_device_spi;
 
 extern struct platform_device msm_gsbi0_qup_i2c_device;
 extern struct platform_device msm_gsbi1_qup_i2c_device;
